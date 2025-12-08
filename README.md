@@ -15,19 +15,16 @@
   - **APA Style**: Get the correct APA citation instantly.
   - **BibTeX**: Generates a valid BibTeX entry for the *found* paper.
 
+
 ---
 
 ## 📥 Download Desktop App (.exe)
-
-**[Download Latest Windows Installer](https://github.com/zabbonat/References-Validation-Backup/releases/latest/download/CheckIfExist-Setup.exe)**
+**[👉 Download Latest Windows Installer](https://github.com/zabbonat/References-Validation/releases/latest/download/CheckIfExist.exe)**
 
 ---
 
 ## 🌐 Web Version
-
-Access the tool directly in your browser without installation:
-
-**[Open Web App](https://zabbonat.github.io/References-Validation-Backup/)**
+**[👉 Open Web App](https://zabbonat.github.io/References-Validation/)**
 
 
 ---
