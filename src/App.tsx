@@ -51,24 +51,38 @@ function App() {
 
   const handleBatchCheck = async () => {
     const parsed = parseBibTex(batchInput);
-    // If parsing fails or input is just raw lines
-    let refs: string[] = [];
+    // If parsing is successful, use structured data
     if (parsed.length > 0) {
-      refs = parsed.map(p => p.entryTags.title || p.citationKey);
+      const refs = parsed.map(p => ({
+        query: p.entryTags.title || p.citationKey,
+        expected: {
+          title: p.entryTags.title,
+          authors: p.entryTags.author
+        }
+      }));
+
+      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r.query, loading: true }));
+      setBatchResults(initialResults);
+
+      const newResults = [...initialResults];
+      for (let i = 0; i < refs.length; i++) {
+        const res = await checkReference(refs[i].query, refs[i].expected);
+        newResults[i] = { ...newResults[i], result: res, loading: false };
+        setBatchResults([...newResults]);
+      }
     } else {
       // Fallback: split by newlines
-      refs = batchInput.split('\n').filter(l => l.trim().length > 10);
-    }
+      const refs = batchInput.split('\n').filter(l => l.trim().length > 10);
 
-    const initialResults: { ref: string, result?: CheckResult, loading: boolean }[] = refs.map(r => ({ ref: r, loading: true }));
-    setBatchResults(initialResults);
+      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r, loading: true }));
+      setBatchResults(initialResults);
 
-    // Process in parallel (or limited concurrency)
-    const newResults = [...initialResults];
-    for (let i = 0; i < refs.length; i++) {
-      const res = await checkReference(refs[i]);
-      newResults[i] = { ...newResults[i], result: res, loading: false };
-      setBatchResults([...newResults]);
+      const newResults = [...initialResults];
+      for (let i = 0; i < refs.length; i++) {
+        const res = await checkReference(refs[i]);
+        newResults[i] = { ...newResults[i], result: res, loading: false };
+        setBatchResults([...newResults]);
+      }
     }
   };
 
