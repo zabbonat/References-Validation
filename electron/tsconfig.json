@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "lib": [
+            "ESNext",
+            "DOM"
+        ],
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "outDir": "../dist-electron",
+        "rootDir": ".",
+        "strict": true
+    },
+    "include": [
+        "main.ts",
+        "preload.ts"
+    ]
+}
