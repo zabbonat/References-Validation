@@ -53,32 +53,39 @@ function App() {
     const parsed = parseBibTex(batchInput);
     // If parsing is successful, use structured data
     if (parsed.length > 0) {
-      const refs = parsed.map(p => ({
-        query: p.entryTags.title || p.citationKey,
-        expected: {
-          title: p.entryTags.title,
-          authors: p.entryTags.author
-        }
+      // Initialize results
+      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = parsed.map(p => ({
+        ref: p.entryTags.title || p.citationKey,
+        loading: true
       }));
-
-      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r.query, loading: true }));
       setBatchResults(initialResults);
 
       const newResults = [...initialResults];
-      for (let i = 0; i < refs.length; i++) {
-        const res = await checkReference(refs[i].query, refs[i].expected);
+      for (let i = 0; i < parsed.length; i++) {
+        // ADDED: Rate limiting to be polite to CrossRef
+        if (i > 0) await new Promise(resolve => setTimeout(resolve, 800));
+
+        // QUERY IMPROVEMENT: Search for "Title Author" to avoid finding wrong paper
+        const p = parsed[i];
+        const searchQuery = `${p.entryTags.title} ${p.entryTags.author || ""}`;
+
+        const res = await checkReference(searchQuery, {
+          title: p.entryTags.title,
+          authors: p.entryTags.author
+        });
+
         newResults[i] = { ...newResults[i], result: res, loading: false };
         setBatchResults([...newResults]);
       }
     } else {
       // Fallback: split by newlines
       const refs = batchInput.split('\n').filter(l => l.trim().length > 10);
-
       const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r, loading: true }));
       setBatchResults(initialResults);
 
       const newResults = [...initialResults];
       for (let i = 0; i < refs.length; i++) {
+        if (i > 0) await new Promise(resolve => setTimeout(resolve, 800));
         const res = await checkReference(refs[i]);
         newResults[i] = { ...newResults[i], result: res, loading: false };
         setBatchResults([...newResults]);

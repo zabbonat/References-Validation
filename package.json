@@ -19,6 +19,25 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
+  "description": "Validation tool for academic references",
+  "author": "Antigravity",
+  "build": {
+    "appId": "com.checkifexist.app",
+    "productName": "CheckIfExist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "resources/icon.png"
+    },
+    "compression": "maximum"
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",

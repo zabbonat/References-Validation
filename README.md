@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# CheckIfExist - Reference Verification Tool 🔍
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**CheckIfExist** is a powerful tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef database to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
-Currently, two official plugins are available:
+![App Screenshot](public/screenshot.png) *(Add a screenshot if possible)*
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
+- **Quick Verification**: Verification of single references via text selection or clipboard.
+- **Batch Mode**: Paste a list of BibTeX entries to verify them all at once.
+- **Advanced Logic**:
+  - Detects partial matches (e.g., correct title but wrong author).
+  - Handles "First Name Last Name" vs "Last Name First Name" variations.
+  - Penalizes scores for missing authors in the query.
+- **Output Formats**:
+  - **APA Style**: Get the correct APA citation instantly.
+  - **BibTeX**: Generates a valid BibTeX entry for the *found* paper.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 📥 Download Desktop App (.exe)
 
-## Expanding the ESLint configuration
+**[Download Latest Windows Installer](https://github.com/zabbonat/References-Validation-Backup/releases/latest/download/CheckIfExist-Setup.exe)**
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🌐 Web Version
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Access the tool directly in your browser without installation:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**[Open Web App](https://zabbonat.github.io/References-Validation-Backup/)**
+
+
+---
+
+## 🛠️ Installation & Build
+
+### Prerequisites
+- Node.js (v18+)
+- Git
+
+### Build from Source
+```bash
+# Clone the repo
+git clone https://github.com/YOUR_USERNAME/CheckIfExist.git
+
+# Install dependencies
+npm install
+
+# Run locally
+npm run dev
+
+# Build for Web
+npm run build
+
+# Build Windows .exe
+npm run electron:pack
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 📄 License
+MIT
