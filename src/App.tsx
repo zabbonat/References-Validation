@@ -111,7 +111,7 @@ function App() {
             onClick={() => setActiveTab('batch')}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === 'batch' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            Batch (BibTeX)
+            Batch Check
           </button>
         </div>
       </header>
@@ -145,10 +145,17 @@ function App() {
         ) : (
           <div className="max-w-2xl mx-auto space-y-4 h-full flex flex-col">
             <div className="bg-white p-4 rounded-xl shadow-sm border flex flex-col flex-1 min-h-[50%]">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">BibTeX / References List</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+                Paste Multiple References (BibTeX or One per Line)
+              </label>
               <textarea
                 className="w-full flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none font-mono text-sm"
-                placeholder="@article{...} or one reference per line"
+                placeholder={`Example 1 (BibTeX):
+@article{key, title={...}, author={...}}
+
+Example 2 (List):
+Paper Title 1. Author Name. 2024.
+Paper Title 2. Author Name. 2023.`}
                 value={batchInput}
                 onChange={(e) => setBatchInput(e.target.value)}
               />
