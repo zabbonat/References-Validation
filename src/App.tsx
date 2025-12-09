@@ -152,7 +152,7 @@ function App() {
                 Paste Multiple References (BibTeX or One per Line)
               </label>
               <textarea
-                className="w-full flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none font-mono text-sm"
+                className="w-full flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y font-mono text-sm min-h-[300px]"
                 placeholder={`Example 1 (BibTeX):
 @article{key, title={...}, author={...}}
 
