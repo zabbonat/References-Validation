@@ -247,45 +247,29 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 );
 
                 // Extract potential author names from the query
-                // Strategy: Find where authors end by looking for year pattern or title start
+                // SIMPLE: Use CrossRef title to find the author section
+                // Everything BEFORE the title in the query = author section
 
-                // Find where authors likely end: look for year pattern
-                const yearMatch = query.match(/[\(\s](19|20)\d{2}[\)\s.,]/);
-                const yearPosition = yearMatch ? query.indexOf(yearMatch[0]) : -1;
+                const titlePosition = query.toLowerCase().indexOf(resultTitle.toLowerCase().substring(0, 20));
 
-                // Find where real title starts in original query
-                const titleWords = resultTitle.split(/\s+/).slice(0, 4).join(' ');
-                const titlePosition = query.toLowerCase().indexOf(titleWords.toLowerCase());
-
-                // Author section is the part before either year or title (whichever is valid and earlier)
-                let authorSectionEnd = query.length;
-                if (yearPosition > 10) authorSectionEnd = Math.min(authorSectionEnd, yearPosition);
-                if (titlePosition > 10) authorSectionEnd = Math.min(authorSectionEnd, titlePosition);
-
-                // If title is at position 0 (starts with title), there's no author section - skip fake author check
-                const hasClearAuthorSection = titlePosition > 10 || yearPosition > 10;
-                const authorSection = hasClearAuthorSection ? query.substring(0, Math.min(authorSectionEnd, 150)) : '';
-
-                // Extract author names using patterns that indicate author names (with initials)
-                const authorPatterns = [
-                    /\b([A-Z][a-z]{2,})\s*,?\s*[A-Z]\.?\s*(?:,|and|&|\s|$)/g,  // "Guerzoni, M." or "Guerzoni M"
-                    /\b[A-Z]\.?\s+([A-Z][a-z]{2,})\b/g,                          // "M. Guerzoni" or "M Guerzoni"
-                    /\b([A-Z][a-z]{2,})\s+(?:and|&)\s+/gi                         // "Guerzoni and"
-                ];
-
-                const potentialAuthorNames: string[] = [];
-                for (const pattern of authorPatterns) {
-                    let match;
-                    pattern.lastIndex = 0;
-                    while ((match = pattern.exec(authorSection)) !== null) {
-                        const name = match[1];
-                        if (name && name.length >= 3) {
-                            potentialAuthorNames.push(normalize(name));
-                        }
+                // If title found, author section is everything before it
+                // If not found (maybe truncated title), try first few words
+                let authorSection = '';
+                if (titlePosition > 5) {
+                    authorSection = query.substring(0, titlePosition);
+                } else {
+                    // Try matching first 3 words of title
+                    const titleStart = resultTitle.split(/\s+/).slice(0, 3).join(' ').toLowerCase();
+                    const altTitlePos = query.toLowerCase().indexOf(titleStart);
+                    if (altTitlePos > 5) {
+                        authorSection = query.substring(0, altTitlePos);
                     }
+                    // else: no clear author section found, skip fake author detection
                 }
 
-                const normalizedPotentialNames = [...new Set(potentialAuthorNames)];
+                // Extract all capitalized words from author section as potential names
+                const potentialNames = authorSection.match(/\b[A-Z][a-z]{2,}\b/g) || [];
+                const normalizedPotentialNames = [...new Set(potentialNames.map(n => normalize(n)))];
 
                 // Check if any potential name in query is NOT a real author (fake author detection)
                 let hasFakeAuthor = false;
