@@ -1,6 +1,6 @@
-# CheckIfExist - Reference Verification Tool 🔍
+# CheckIfExists - Reference Verification Tool 🔍
 
-**CheckIfExist** is a powerful tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef database to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
+**CheckIfExist** is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef database to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
 ## 📸 Screenshots
 
