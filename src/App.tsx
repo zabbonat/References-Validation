@@ -54,8 +54,7 @@ function App() {
     // If parsing is successful, use structured data
     if (parsed.length > 0) {
       // Initialize results
-      // DEBUG:
-      alert(`Found ${parsed.length} BibTeX entries.`);
+      // Initialize results
 
       const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = parsed.map(p => ({
         ref: p.entryTags.title || p.citationKey,
