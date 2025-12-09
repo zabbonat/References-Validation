@@ -16,6 +16,7 @@ export interface CheckResult {
     matchConfidence: number; // 0-100
     titleMatchScore: number;
     authorMatchScore: number;
+    journalMatchScore: number;
     issues: string[]; // e.g., "Authors Mismatch"
 
     source: 'CrossRef' | 'NotFound';
@@ -61,6 +62,7 @@ const calculateSimilarity = (str1: string, str2: string): number => {
 interface ExpectedMetadata {
     title?: string;
     authors?: string;
+    journal?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,6 +123,7 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 matchConfidence: 0,
                 titleMatchScore: 0,
                 authorMatchScore: 0,
+                journalMatchScore: 0,
                 issues: []
             };
         }
@@ -172,6 +175,7 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
             // Validation Logic
             let titleSim = bestTitleSim; // We already calculated this
             let authorSim = 0;
+            let journalSim = 0;
             let overallSim = 0;
             const issues: string[] = [];
 
@@ -198,7 +202,14 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     authorSim = 100;
                 }
 
-                overallSim = (titleSim + authorSim) / 2;
+                // Journal Matching (Batch Mode)
+                if (expected.journal) {
+                    journalSim = calculateSimilarity(expected.journal, resultJournal);
+                } else {
+                    journalSim = 100; // No journal to compare
+                }
+
+                overallSim = (titleSim + authorSim + journalSim) / 3;
             } else {
                 // Free text validation (Quick Check)
 
@@ -258,6 +269,12 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 confidence -= 20;
             }
 
+            // Journal mismatch (Batch mode)
+            if (expected?.journal && journalSim < 50) {
+                issues.push("Journal mismatch");
+                confidence -= 15;
+            }
+
             if (confidence > 100) confidence = 100;
             if (confidence < 0) confidence = 0;
 
@@ -276,6 +293,7 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 matchConfidence: confidence,
                 titleMatchScore: titleSim,
                 authorMatchScore: authorSim,
+                journalMatchScore: journalSim,
                 issues: issues
             };
         }
@@ -286,6 +304,7 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
             matchConfidence: 0,
             titleMatchScore: 0,
             authorMatchScore: 0,
+            journalMatchScore: 0,
             issues: []
         };
     } catch (error) {
@@ -296,6 +315,7 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
             matchConfidence: 0,
             titleMatchScore: 0,
             authorMatchScore: 0,
+            journalMatchScore: 0,
             issues: []
         };
     }
