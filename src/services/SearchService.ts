@@ -238,6 +238,40 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     }
                 }
 
+                // 3. Journal Presence Check (Quick Check Mode)
+                // Check if the REAL journal appears in the query. If a different journal is mentioned, flag it.
+                if (resultJournal && resultJournal.length > 3) {
+                    const normalizedJournal = normalize(resultJournal);
+                    // Extract key words from journal name (at least 4 chars to avoid false positives)
+                    const journalWords = normalizedJournal.split(/\s+/).filter(w => w.length >= 4);
+
+                    // Check if any significant journal word appears in query
+                    const journalInQuery = journalWords.some(word => nQuery.includes(word));
+
+                    if (journalInQuery) {
+                        journalSim = 100;
+                    } else {
+                        // The real journal is NOT in the query
+                        // Check if the query seems to contain a journal name (text after author section)
+                        // Common patterns: ends with "Journal Name" or has period-separated sections
+
+                        // Look for journal indicators OR any capitalized phrase that could be a journal
+                        const journalIndicators = ['journal', 'proceedings', 'transactions', 'review', 'quarterly', 'annals', 'bulletin', 'policy', 'science', 'studies', 'research', 'nature', 'lancet', 'bmj', 'plos', 'frontiers'];
+                        const hasJournalLikeTerm = journalIndicators.some(ind => nQuery.includes(ind));
+
+                        if (hasJournalLikeTerm && titleSim > 70) {
+                            // User mentioned something that looks like a journal but it doesn't match the real one
+                            journalSim = 0;
+                            issues.push(`Possible Journal Mismatch (actual: ${resultJournal})`);
+                        } else {
+                            // No journal explicitly mentioned, that's okay
+                            journalSim = 50; // Neutral
+                        }
+                    }
+                } else {
+                    journalSim = 50; // No journal to compare
+                }
+
                 // Overall Score Calculation
                 if (titleSim > 80) {
                     if (authorSim === 100) {
