@@ -15,43 +15,25 @@
   - **APA Style**: Get the correct APA citation instantly.
   - **BibTeX**: Generates a valid BibTeX entry for the *found* paper.
 
+## 🛠 **Run Locally**
 
----
+If you want to run the code yourself:
 
-## 📥 Download Desktop App (.exe)
-**[👉 Download Latest Windows Installer](https://github.com/zabbonat/References-Validation/releases/latest/download/CheckIfExist.exe)**
+1.  **Clone the repo**
+    ```bash
+    git clone https://github.com/zabbonat/References-Validation.git
+    cd References-Validation
+    ```
 
----
+2.  **Install dependencies**
+    ```bash
+    npm install
+    ```
 
-## 🌐 Web Version
-**[👉 Open Web App](https://zabbonat.github.io/References-Validation/)**
-
-
----
-
-## 🛠️ Installation & Build
-
-### Prerequisites
-- Node.js (v18+)
-- Git
-
-### Build from Source
-```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/CheckIfExist.git
-
-# Install dependencies
-npm install
-
-# Run locally
-npm run dev
-
-# Build for Web
-npm run build
-
-# Build Windows .exe
-npm run electron:pack
-```
+3.  **Run the web app**
+    ```bash
+    npm run dev
+    ```
 
 ## 📄 License
 MIT

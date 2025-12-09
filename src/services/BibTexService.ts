@@ -1,5 +1,5 @@
-// @ts-expect-error No types available for this library
-import bibtexParse from 'bibtex-parse-js';
+// @ts-expect-error - The library lacks types, but we've vendored it
+import bibtexParse from '../vendors/bibtexParse.js';
 
 export interface ParsedReference {
     entryTags: {
