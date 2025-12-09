@@ -38,6 +38,8 @@ export const bibtexParse = function () {
             delete entry.key;
 
             if (entry.entryTags) {
+                // Modified: Do NOT flatten entryTags. Keep structure compatible with App.tsx
+                /*
                 var entryTags = entry.entryTags;
                 for (var key in entryTags) {
                     if (entryTags.hasOwnProperty(key)) {
@@ -46,6 +48,7 @@ export const bibtexParse = function () {
                 }
                 delete entry.entryTags;
                 delete entry.entryType;
+                */
                 json.push(entry);
             }
         });

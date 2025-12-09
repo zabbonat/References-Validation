@@ -83,7 +83,6 @@ function App() {
     } else {
       // Fallback: split by newlines
       const refs = batchInput.split('\n').filter(l => l.trim().length > 10);
-      alert(`Found ${refs.length} valid lines (text mode).`);
 
       const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r, loading: true }));
       setBatchResults(initialResults);
