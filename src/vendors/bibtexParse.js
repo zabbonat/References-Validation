@@ -176,7 +176,7 @@ export const bibtexParse = function () {
 
         function consumeKey() {
             var start = pos;
-            while (pos < input.length && /[a-zA-Z0-9_\-:]/.test(input[pos])) {
+            while (pos < input.length && /[a-zA-Z0-9_\-:\.\/]/.test(input[pos])) {
                 pos++;
             }
             return input.substring(start, pos);
