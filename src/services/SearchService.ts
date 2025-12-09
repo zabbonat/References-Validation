@@ -63,6 +63,7 @@ interface ExpectedMetadata {
     title?: string;
     authors?: string;
     journal?: string;
+    year?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,7 +210,18 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     journalSim = 100; // No journal to compare
                 }
 
-                overallSim = (titleSim + authorSim + journalSim) / 3;
+                // Year Matching (Batch Mode)
+                let yearSim = 100;
+                if (expected.year && resultYear) {
+                    if (expected.year === resultYear) {
+                        yearSim = 100;
+                    } else {
+                        yearSim = 0;
+                        issues.push(`Year Mismatch: expected ${expected.year}, found ${resultYear}`);
+                    }
+                }
+
+                overallSim = (titleSim + authorSim + journalSim + yearSim) / 4;
             } else {
                 // Free text validation (Quick Check)
 
@@ -270,6 +282,23 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     }
                 } else {
                     journalSim = 50; // No journal to compare
+                }
+                // 4. Year Check (Quick Check Mode)
+                // Extract years from query and check if the real year matches
+                if (resultYear && resultYear.length === 4) {
+                    // Find all 4-digit numbers in query that look like years (1900-2099)
+                    const yearMatches: string[] = query.match(/\b(19|20)\d{2}\b/g) || [];
+
+                    if (yearMatches.length > 0) {
+                        // Check if the real year is among the years mentioned
+                        const realYearInQuery = yearMatches.includes(resultYear);
+
+                        if (!realYearInQuery) {
+                            // User mentioned a year but it doesn't match the real one
+                            issues.push(`Year Mismatch: you wrote ${yearMatches[0]}, actual is ${resultYear}`);
+                            overallSim -= 25; // Year mismatch penalty
+                        }
+                    }
                 }
 
                 // Overall Score Calculation

@@ -74,7 +74,8 @@ function App() {
         const res = await checkReference(searchQuery, {
           title: p.entryTags.title,
           authors: p.entryTags.author,
-          journal: p.entryTags.journal
+          journal: p.entryTags.journal,
+          year: p.entryTags.year
         });
 
         newResults[i] = { ...newResults[i], result: res, loading: false };
