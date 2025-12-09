@@ -2,7 +2,13 @@
 
 **CheckIfExist** is a powerful tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef database to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
-![App Screenshot](public/screenshot.png) *(Add a screenshot if possible)*
+## 📸 Screenshots
+
+<p align="center">
+  <img src="public/2.png" width="30%" alt="Screenshot 1" />
+  <img src="public/3.png" width="30%" alt="Screenshot 2" />
+  <img src="public/4.png" width="30%" alt="Screenshot 3" />
+</p>
 
 ## 🚀 Features
 - **Quick Verification**: Verification of single references via text selection or clipboard.
