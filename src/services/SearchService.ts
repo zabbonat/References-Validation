@@ -231,10 +231,7 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     titleSim = 95;
                 }
 
-                // 2. Author Validation - Check BOTH directions:
-                //    a) Are all REAL authors present in the query?
-                //    b) Are there any FAKE authors in the query that don't exist in the real paper?
-
+                // 2. Author Validation using CrossRef author list
                 // Get all real author family names from CrossRef
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const realAuthorFamilies: string[] = (item.author || [])
@@ -246,70 +243,62 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     nQuery.includes(family)
                 );
 
-                // Extract potential author names from the query
-                // SIMPLE: Use CrossRef title to find the author section
-                // Everything BEFORE the title in the query = author section
+                // Find author section using CrossRef title position
+                // Authors can be BEFORE title (e.g., "Smith (2020). Title...") 
+                // OR AFTER title (e.g., "Title... M Guerzoni, L Riso...")
+                const titleLower = resultTitle.toLowerCase();
+                const titlePos = query.toLowerCase().indexOf(titleLower.substring(0, Math.min(30, titleLower.length)));
 
-                const titlePosition = query.toLowerCase().indexOf(resultTitle.toLowerCase().substring(0, 20));
-
-                // If title found, author section is everything before it
-                // If not found (maybe truncated title), try first few words
                 let authorSection = '';
-                if (titlePosition > 5) {
-                    authorSection = query.substring(0, titlePosition);
-                } else {
-                    // Try matching first 3 words of title
-                    const titleStart = resultTitle.split(/\s+/).slice(0, 3).join(' ').toLowerCase();
-                    const altTitlePos = query.toLowerCase().indexOf(titleStart);
-                    if (altTitlePos > 5) {
-                        authorSection = query.substring(0, altTitlePos);
+                if (titlePos > 10) {
+                    // Title found after some text - authors are likely before title
+                    authorSection = query.substring(0, titlePos);
+                } else if (titlePos >= 0) {
+                    // Title at start or near start - authors might be after title
+                    // Look for text after title that contains author names
+                    const afterTitle = query.substring(titlePos + resultTitle.length);
+                    // Authors often come right after title, before journal
+                    const journalPos = afterTitle.toLowerCase().indexOf('journal');
+                    if (journalPos > 0) {
+                        authorSection = afterTitle.substring(0, journalPos);
+                    } else {
+                        // Take first 100 chars after title as potential author area
+                        authorSection = afterTitle.substring(0, 100);
                     }
-                    // else: no clear author section found, skip fake author detection
                 }
 
-                // Extract all capitalized words from author section as potential names
+                // Extract capitalized names from author section
                 const potentialNames = authorSection.match(/\b[A-Z][a-z]{2,}\b/g) || [];
                 const normalizedPotentialNames = [...new Set(potentialNames.map(n => normalize(n)))];
 
-                // Check if any potential name in query is NOT a real author (fake author detection)
-                let hasFakeAuthor = false;
+                // Check for fake authors (names in author section that aren't real authors)
                 const fakeAuthors: string[] = [];
-
                 for (const potentialName of normalizedPotentialNames) {
-                    if (potentialName.length < 3) continue; // Skip short matches
-                    // Skip common words that might be mistaken for names
-                    const commonWords = ['the', 'and', 'for', 'from', 'with', 'journal', 'review', 'science', 'nature', 'policy', 'social', 'health', 'public', 'american', 'european', 'research', 'international'];
-                    if (commonWords.includes(potentialName)) continue;
+                    if (potentialName.length < 4) continue;
+                    // Skip common words
+                    const skipWords = ['the', 'and', 'for', 'from', 'with', 'journal', 'review', 'economics', 'finance', 'american', 'north', 'international'];
+                    if (skipWords.includes(potentialName)) continue;
 
-                    // Check if this name exists in real authors
-                    const isRealAuthor = realAuthorFamilies.some(realName =>
-                        realName.includes(potentialName) || potentialName.includes(realName)
+                    // Check if this is a real author
+                    const isRealAuthor = realAuthorFamilies.some(real =>
+                        real.includes(potentialName) || potentialName.includes(real)
                     );
 
-                    if (!isRealAuthor && potentialName.length >= 4) {
-                        hasFakeAuthor = true;
-                        // Just use the potentialName directly since it's already extracted
-                        if (!fakeAuthors.includes(potentialName)) {
-                            fakeAuthors.push(potentialName);
-                        }
+                    if (!isRealAuthor) {
+                        fakeAuthors.push(potentialName);
                     }
                 }
 
-                if (anyRealAuthorInQuery && !hasFakeAuthor) {
+                // Determine author score
+                if (anyRealAuthorInQuery && fakeAuthors.length === 0) {
                     authorSim = 100;
-                } else if (anyRealAuthorInQuery && hasFakeAuthor) {
-                    // Some real authors found, but also fake authors
-                    authorSim = 30; // Partial credit
-                    if (titleSim > 70 && fakeAuthors.length > 0) {
-                        issues.push(`Fake Author Detected: "${fakeAuthors.join(", ")}" is not an author of this paper. Real authors: ${realAuthorFamilies.slice(0, 3).join(", ")}${realAuthorFamilies.length > 3 ? '...' : ''}`);
-                    }
+                } else if (anyRealAuthorInQuery && fakeAuthors.length > 0) {
+                    authorSim = 30;
+                    issues.push(`Fake Author: "${fakeAuthors.join(", ")}" not in paper. Real authors: ${realAuthorFamilies.join(", ")}`);
                 } else {
-                    // No real author found in query
                     authorSim = 0;
-
                     if (titleSim > 80 && query.length > 50) {
-                        // Only flag if query is long enough to reasonably contain an author
-                        issues.push("Possible Author Mismatch");
+                        issues.push(`Author Mismatch: real authors are ${realAuthorFamilies.join(", ")}`);
                     }
                 }
 
