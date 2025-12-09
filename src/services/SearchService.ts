@@ -270,9 +270,14 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
             }
 
             // Journal mismatch (Batch mode)
-            if (expected?.journal && journalSim < 50) {
-                issues.push("Journal mismatch");
-                confidence -= 15;
+            if (expected?.journal && journalSim < 70) {
+                if (journalSim < 40) {
+                    issues.push(`Journal mismatch: "${expected.journal}" vs "${resultJournal}"`);
+                    confidence -= 20;
+                } else {
+                    issues.push(`Journal differs: "${expected.journal}" vs "${resultJournal}"`);
+                    confidence -= 10;
+                }
             }
 
             if (confidence > 100) confidence = 100;
