@@ -54,6 +54,9 @@ function App() {
     // If parsing is successful, use structured data
     if (parsed.length > 0) {
       // Initialize results
+      // DEBUG:
+      alert(`Found ${parsed.length} BibTeX entries.`);
+
       const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = parsed.map(p => ({
         ref: p.entryTags.title || p.citationKey,
         loading: true
@@ -80,6 +83,8 @@ function App() {
     } else {
       // Fallback: split by newlines
       const refs = batchInput.split('\n').filter(l => l.trim().length > 10);
+      alert(`Found ${refs.length} valid lines (text mode).`);
+
       const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r, loading: true }));
       setBatchResults(initialResults);
 
