@@ -285,6 +285,11 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     overallSim = (titleSim + authorSim) / 2;
                 }
 
+                // Apply journal penalty for Quick Check mode
+                if (journalSim === 0) {
+                    overallSim -= 25; // Journal mismatch penalty
+                }
+
                 // Floor at 0
                 overallSim = Math.max(0, overallSim);
             }
