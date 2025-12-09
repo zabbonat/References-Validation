@@ -247,14 +247,45 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 );
 
                 // Extract potential author names from the query
-                // Authors usually appear before the year (pattern: "Name1, Name2 (Year)" or "Name1 and Name2 Year")
-                // Look for capitalized words or name patterns before the title
-                const titleInQuery = nResultTitle ? nQuery.indexOf(nResultTitle.substring(0, Math.min(20, nResultTitle.length))) : -1;
-                const authorSection = titleInQuery > 0 ? query.substring(0, titleInQuery) : query.substring(0, Math.min(100, query.length));
+                // Strategy: Find where authors end by looking for year pattern or title start
 
-                // Extract potential last names (capitalized words, typically 3+ chars)
-                const potentialNames = authorSection.match(/\b[A-Z][a-z]{2,}(?:\s+[A-Z]\.?)*/g) || [];
-                const normalizedPotentialNames = potentialNames.map(n => normalize(n.split(/\s+/)[0])); // Take first word (family name)
+                // Find where authors likely end: look for year pattern
+                const yearMatch = query.match(/[\(\s](19|20)\d{2}[\)\s.,]/);
+                const yearPosition = yearMatch ? query.indexOf(yearMatch[0]) : -1;
+
+                // Find where real title starts in original query
+                const titleWords = resultTitle.split(/\s+/).slice(0, 4).join(' ');
+                const titlePosition = query.toLowerCase().indexOf(titleWords.toLowerCase());
+
+                // Author section is the part before either year or title (whichever is valid and earlier)
+                let authorSectionEnd = query.length;
+                if (yearPosition > 10) authorSectionEnd = Math.min(authorSectionEnd, yearPosition);
+                if (titlePosition > 10) authorSectionEnd = Math.min(authorSectionEnd, titlePosition);
+
+                // If title is at position 0 (starts with title), there's no author section - skip fake author check
+                const hasClearAuthorSection = titlePosition > 10 || yearPosition > 10;
+                const authorSection = hasClearAuthorSection ? query.substring(0, Math.min(authorSectionEnd, 150)) : '';
+
+                // Extract author names using patterns that indicate author names (with initials)
+                const authorPatterns = [
+                    /\b([A-Z][a-z]{2,})\s*,?\s*[A-Z]\.?\s*(?:,|and|&|\s|$)/g,  // "Guerzoni, M." or "Guerzoni M"
+                    /\b[A-Z]\.?\s+([A-Z][a-z]{2,})\b/g,                          // "M. Guerzoni" or "M Guerzoni"
+                    /\b([A-Z][a-z]{2,})\s+(?:and|&)\s+/gi                         // "Guerzoni and"
+                ];
+
+                const potentialAuthorNames: string[] = [];
+                for (const pattern of authorPatterns) {
+                    let match;
+                    pattern.lastIndex = 0;
+                    while ((match = pattern.exec(authorSection)) !== null) {
+                        const name = match[1];
+                        if (name && name.length >= 3) {
+                            potentialAuthorNames.push(normalize(name));
+                        }
+                    }
+                }
+
+                const normalizedPotentialNames = [...new Set(potentialAuthorNames)];
 
                 // Check if any potential name in query is NOT a real author (fake author detection)
                 let hasFakeAuthor = false;
@@ -273,10 +304,9 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
 
                     if (!isRealAuthor && potentialName.length >= 4) {
                         hasFakeAuthor = true;
-                        // Get original case version for display
-                        const originalName = potentialNames.find(n => normalize(n.split(/\s+/)[0]) === potentialName);
-                        if (originalName && !fakeAuthors.includes(originalName.split(/\s+/)[0])) {
-                            fakeAuthors.push(originalName.split(/\s+/)[0]);
+                        // Just use the potentialName directly since it's already extracted
+                        if (!fakeAuthors.includes(potentialName)) {
+                            fakeAuthors.push(potentialName);
                         }
                     }
                 }
