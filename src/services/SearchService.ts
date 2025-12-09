@@ -224,133 +224,73 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 overallSim = (titleSim + authorSim + journalSim + yearSim) / 4;
             } else {
                 // Free text validation (Quick Check)
+                // SIMPLE: CrossRef gives us structured data - just check if each field appears in query
 
-                // 1. Title Score is already bestTitleSim 
-                // Double check containment just in case better match logic missed it
+                // ===== 1. TITLE =====
+                // Already calculated as bestTitleSim, double-check containment
                 if (titleSim < 95 && nQuery.includes(nResultTitle)) {
                     titleSim = 95;
                 }
 
-                // 2. Author Validation using CrossRef author list
+                // ===== 2. AUTHORS from CrossRef =====
                 // Get all real author family names from CrossRef
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const realAuthorFamilies: string[] = (item.author || [])
                     .map((a: any) => normalize(a.family || ""))
                     .filter((name: string) => name.length > 2);
 
-                // Check if at least one real author is in the query
-                const anyRealAuthorInQuery = realAuthorFamilies.some(family =>
-                    nQuery.includes(family)
-                );
+                // Simply check: how many CrossRef authors appear in the query?
+                const authorsFound = realAuthorFamilies.filter(author => nQuery.includes(author));
+                const authorsMissing = realAuthorFamilies.filter(author => !nQuery.includes(author));
 
-                // Find author section using CrossRef title position
-                // Authors can be BEFORE title (e.g., "Smith (2020). Title...") 
-                // OR AFTER title (e.g., "Title... M Guerzoni, L Riso...")
-                const titleLower = resultTitle.toLowerCase();
-                const titlePos = query.toLowerCase().indexOf(titleLower.substring(0, Math.min(30, titleLower.length)));
-
-                let authorSection = '';
-                if (titlePos > 10) {
-                    // Title found after some text - authors are likely before title
-                    authorSection = query.substring(0, titlePos);
-                } else if (titlePos >= 0) {
-                    // Title at start or near start - authors might be after title
-                    // Look for text after title that contains author names
-                    const afterTitle = query.substring(titlePos + resultTitle.length);
-                    // Authors often come right after title, before journal
-                    const journalPos = afterTitle.toLowerCase().indexOf('journal');
-                    if (journalPos > 0) {
-                        authorSection = afterTitle.substring(0, journalPos);
-                    } else {
-                        // Take first 100 chars after title as potential author area
-                        authorSection = afterTitle.substring(0, 100);
-                    }
-                }
-
-                // Extract capitalized names from author section
-                const potentialNames = authorSection.match(/\b[A-Z][a-z]{2,}\b/g) || [];
-                const normalizedPotentialNames = [...new Set(potentialNames.map(n => normalize(n)))];
-
-                // Check for fake authors (names in author section that aren't real authors)
-                const fakeAuthors: string[] = [];
-                for (const potentialName of normalizedPotentialNames) {
-                    if (potentialName.length < 4) continue;
-                    // Skip common words
-                    const skipWords = ['the', 'and', 'for', 'from', 'with', 'journal', 'review', 'economics', 'finance', 'american', 'north', 'international'];
-                    if (skipWords.includes(potentialName)) continue;
-
-                    // Check if this is a real author
-                    const isRealAuthor = realAuthorFamilies.some(real =>
-                        real.includes(potentialName) || potentialName.includes(real)
-                    );
-
-                    if (!isRealAuthor) {
-                        fakeAuthors.push(potentialName);
-                    }
-                }
-
-                // Determine author score
-                if (anyRealAuthorInQuery && fakeAuthors.length === 0) {
+                if (authorsFound.length === realAuthorFamilies.length) {
+                    // All authors found
                     authorSim = 100;
-                } else if (anyRealAuthorInQuery && fakeAuthors.length > 0) {
-                    authorSim = 30;
-                    issues.push(`Fake Author: "${fakeAuthors.join(", ")}" not in paper. Real authors: ${realAuthorFamilies.join(", ")}`);
+                } else if (authorsFound.length > 0) {
+                    // Some authors found
+                    authorSim = Math.round((authorsFound.length / realAuthorFamilies.length) * 100);
+                    if (authorsMissing.length > 0 && titleSim > 70) {
+                        issues.push(`Missing authors: ${authorsMissing.join(", ")}`);
+                    }
                 } else {
+                    // No authors found
                     authorSim = 0;
-                    if (titleSim > 80 && query.length > 50) {
-                        issues.push(`Author Mismatch: real authors are ${realAuthorFamilies.join(", ")}`);
+                    if (titleSim > 80) {
+                        issues.push(`Author Mismatch: none of the real authors (${realAuthorFamilies.join(", ")}) found`);
                     }
                 }
 
-                // 3. Journal Presence Check (Quick Check Mode)
-                // Check if the REAL journal appears in the query. If a different journal is mentioned, flag it.
+                // ===== 3. JOURNAL from CrossRef =====
                 if (resultJournal && resultJournal.length > 3) {
-                    const normalizedJournal = normalize(resultJournal);
-                    // Extract key words from journal name (at least 4 chars to avoid false positives)
-                    const journalWords = normalizedJournal.split(/\s+/).filter(w => w.length >= 4);
-
-                    // Check if any significant journal word appears in query
+                    // Check if journal name (or significant words) appears in query
+                    const journalWords = normalize(resultJournal).split(/\s+/).filter(w => w.length >= 4);
                     const journalInQuery = journalWords.some(word => nQuery.includes(word));
 
                     if (journalInQuery) {
                         journalSim = 100;
                     } else {
-                        // The real journal is NOT in the query
-                        // Check if the query seems to contain a journal name (text after author section)
-                        // Common patterns: ends with "Journal Name" or has period-separated sections
-
-                        // Look for journal indicators OR any capitalized phrase that could be a journal
-                        const journalIndicators = ['journal', 'proceedings', 'transactions', 'review', 'quarterly', 'annals', 'bulletin', 'policy', 'science', 'studies', 'research', 'nature', 'lancet', 'bmj', 'plos', 'frontiers'];
-                        const hasJournalLikeTerm = journalIndicators.some(ind => nQuery.includes(ind));
-
-                        if (hasJournalLikeTerm && titleSim > 70) {
-                            // User mentioned something that looks like a journal but it doesn't match the real one
-                            journalSim = 0;
-                            issues.push(`Possible Journal Mismatch (actual: ${resultJournal})`);
-                        } else {
-                            // No journal explicitly mentioned, that's okay
-                            journalSim = 50; // Neutral
+                        journalSim = 0;
+                        if (titleSim > 70) {
+                            issues.push(`Journal Mismatch: actual is "${resultJournal}"`);
                         }
                     }
                 } else {
-                    journalSim = 50; // No journal to compare
+                    journalSim = 50; // CrossRef has no journal info
                 }
-                // 4. Year Check (Quick Check Mode)
-                // Extract years from query and check if the real year matches
+
+                // ===== 4. YEAR from CrossRef =====
                 if (resultYear && resultYear.length === 4) {
-                    // Find all 4-digit numbers in query that look like years (1900-2099)
-                    const yearMatches: string[] = query.match(/\b(19|20)\d{2}\b/g) || [];
+                    // Check if the CrossRef year appears in query
+                    const yearsInQuery: string[] = query.match(/\b(19|20)\d{2}\b/g) || [];
 
-                    if (yearMatches.length > 0) {
-                        // Check if the real year is among the years mentioned
-                        const realYearInQuery = yearMatches.includes(resultYear);
-
-                        if (!realYearInQuery) {
-                            // User mentioned a year but it doesn't match the real one
-                            issues.push(`Year Mismatch: you wrote ${yearMatches[0]}, actual is ${resultYear}`);
-                            overallSim -= 25; // Year mismatch penalty
-                        }
+                    if (yearsInQuery.includes(resultYear)) {
+                        // Year matches - good!
+                    } else if (yearsInQuery.length > 0) {
+                        // User wrote a different year
+                        issues.push(`Year Mismatch: you wrote ${yearsInQuery[0]}, actual is ${resultYear}`);
+                        overallSim -= 25;
                     }
+                    // If no year in query, that's okay - don't penalize
                 }
 
                 // Overall Score Calculation
