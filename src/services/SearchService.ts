@@ -182,23 +182,54 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
 
             const nResultTitle = normalize(resultTitle);
 
+            // Fetch Real Authors for comparison (Cleaned)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const realAuthorFamilies: string[] = (item.author || [])
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((a: any) => normalize(a.family || ""))
+                .filter((name: string) => name.length > 2);
+
             if (expected?.title) {
-                // Strict validation (Batch Mode)
+                // strict validation (Batch Mode)
 
                 if (expected.authors) {
-                    // Relaxed Author Check
-                    // Logic Change: Check if the *Found Family Name* (CrossRef) is contained in the *Expected Author String* (User Input)
-                    // This handles "First Last" vs "Last First" automatically.
+                    // Strict Author Check
                     const normExpected = normalize(expected.authors);
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const firstFoundFamily = normalize(item.author?.[0]?.family || "");
 
-                    if (firstFoundFamily && normExpected.includes(firstFoundFamily)) {
-                        authorSim = 100;
+                    // Check 1: Are real authors present?
+                    // Check 1: Are real authors present?
+                    const authorsFound = realAuthorFamilies.filter(author => normExpected.includes(author));
+
+                    if (authorsFound.length > 0) {
+                        authorSim = Math.min(100, Math.round((authorsFound.length / realAuthorFamilies.length) * 100));
                     } else {
-                        // Fallback to strict similarity if containment fails (maybe typo?)
+                        // Fallback to strict similarity if containment fails
                         authorSim = calculateSimilarity(expected.authors, resultAuthors);
                     }
+
+                    // Check 2: Are there EXTRA authors in expected? (The new requirement)
+                    // We split expected authors by common delimiters
+                    const expectedList = expected.authors
+                        .split(/[,&]|\sand\s/i)
+                        .map(s => s.trim())
+                        .filter(s => s.length > 2); // Ignore initials-only or short junk
+
+                    const extraAuthors = [];
+                    for (const expAuth of expectedList) {
+                        const nExp = normalize(expAuth);
+                        // Check if this expected author matches ANY real author
+                        // We check if nExp contains any real author OR any real author contains nExp
+                        const match = realAuthorFamilies.some(real => real.includes(nExp) || nExp.includes(real));
+                        if (!match) {
+                            extraAuthors.push(expAuth);
+                        }
+                    }
+
+                    if (extraAuthors.length > 0) {
+                        issues.push(`Extra/Fake Authors detected: ${extraAuthors.join(", ")}`);
+                        authorSim -= (20 * extraAuthors.length); // Heavy penalty for fake authors
+                    }
+
                 } else {
                     authorSim = 100;
                 }
@@ -224,7 +255,6 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 overallSim = (titleSim + authorSim + journalSim + yearSim) / 4;
             } else {
                 // Free text validation (Quick Check)
-                // SIMPLE: CrossRef gives us structured data - just check if each field appears in query
 
                 // ===== 1. TITLE =====
                 // Already calculated as bestTitleSim, double-check containment
@@ -233,32 +263,96 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 }
 
                 // ===== 2. AUTHORS from CrossRef =====
-                // Get all real author family names from CrossRef
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const realAuthorFamilies: string[] = (item.author || [])
-                    .map((a: any) => normalize(a.family || ""))
-                    .filter((name: string) => name.length > 2);
-
                 // Simply check: how many CrossRef authors appear in the query?
                 const authorsFound = realAuthorFamilies.filter(author => nQuery.includes(author));
                 const authorsMissing = realAuthorFamilies.filter(author => !nQuery.includes(author));
 
                 if (authorsFound.length === realAuthorFamilies.length) {
-                    // All authors found
                     authorSim = 100;
                 } else if (authorsFound.length > 0) {
-                    // Some authors found
                     authorSim = Math.round((authorsFound.length / realAuthorFamilies.length) * 100);
                     if (authorsMissing.length > 0 && titleSim > 70) {
-                        issues.push(`Missing authors: ${authorsMissing.join(", ")}`);
+                        // Don't flag missing authors if we suspect the user just truncated the list (et al)
+                        // But here we are strict about *found* authors.
+                        // issues.push(`Missing authors: ${authorsMissing.join(", ")}`); 
                     }
                 } else {
-                    // No authors found
                     authorSim = 0;
                     if (titleSim > 80) {
-                        issues.push(`Author Mismatch: none of the real authors (${realAuthorFamilies.join(", ")}) found`);
+                        issues.push(`Author Mismatch: none of the real authors found`);
                     }
                 }
+
+                // ===== NEW: DETECT FAKE AUTHORS (Quick Check) =====
+                // Heuristic: Remove Title words, Journal words, Year from Query.
+                // What remains are likely authors. Check them.
+
+                let queryRemains = nQuery;
+
+                // Remove Title Tokens
+                const titleTokens = nResultTitle.split(" ");
+                titleTokens.forEach(token => {
+                    if (token.length > 3) queryRemains = queryRemains.replace(token, "");
+                });
+
+                // Remove Journal Tokens
+                if (resultJournal) {
+                    const journalTokens = normalize(resultJournal).split(" ");
+                    journalTokens.forEach(token => {
+                        if (token.length > 3) queryRemains = queryRemains.replace(token, "");
+                    });
+                }
+
+                // Remove Year
+                if (resultYear) {
+                    queryRemains = queryRemains.replace(resultYear, "");
+                }
+
+                // Remove common words
+                const stopWords = ["vol", "issue", "pp", "doi", "http", "https", "org", "com", "www"];
+                stopWords.forEach(w => queryRemains = queryRemains.replace(w, ""));
+
+                // Now analyze potential names in the original Query that map to the "remains"
+                // This is hard to do perfectly with just string replacement. 
+                // Alternative: Tokenize the original Query, filter out tokens that matched Title/Journal.
+
+                const queryTokens = query.split(/[\s,.:;()]+/);
+                const potentialFakeAuthors = [];
+
+                for (const token of queryTokens) {
+                    const nToken = normalize(token);
+                    if (nToken.length < 3) continue; // Skip short
+                    if (!/^[A-Z]/.test(token)) continue; // Skip lowercase structure words
+                    if (stopWords.includes(nToken)) continue;
+
+                    // Is this token part of the Title?
+                    if (nResultTitle.includes(nToken)) continue;
+                    // Is this token part of the Journal?
+                    if (resultJournal && normalize(resultJournal).includes(nToken)) continue;
+                    // Is this token part of the Year?
+                    if (resultYear && resultYear.includes(token)) continue;
+
+                    // Is this token a Real Author?
+                    const isRealAuthor = realAuthorFamilies.some(real => real.includes(nToken) || nToken.includes(real));
+
+                    if (!isRealAuthor) {
+                        // It's Capitalized, not title, not journal, not year, and NOT a real author.
+                        // High chance it's a fake author or garbage.
+                        // To be safe, we collect them.
+                        potentialFakeAuthors.push(token);
+                    }
+                }
+
+                if (potentialFakeAuthors.length > 0) {
+                    // Filter out duplicates
+                    const uniqueFakes = [...new Set(potentialFakeAuthors)];
+                    // Limit output
+                    if (uniqueFakes.length <= 5) { // If too many, it's probably just a mismatch query
+                        issues.push(`Possible Extra/Fake Authors: ${uniqueFakes.join(", ")}`);
+                        authorSim -= (10 * uniqueFakes.length);
+                    }
+                }
+
 
                 // ===== 3. JOURNAL from CrossRef =====
                 if (resultJournal && resultJournal.length > 3) {
@@ -295,11 +389,11 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
 
                 // Overall Score Calculation
                 if (titleSim > 80) {
-                    if (authorSim === 100) {
-                        overallSim = Math.min(100, titleSim + 5);
+                    if (authorSim >= 90) { // Slight relaxation
+                        overallSim = titleSim;
                     } else {
                         // Title Good but Author Bad -> Penalize
-                        overallSim = titleSim - 40; // Drop from ~95 to ~55
+                        overallSim = titleSim - (100 - authorSim) * 0.5;
                     }
                 } else {
                     // Weak Title Match
@@ -307,8 +401,8 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 }
 
                 // Apply journal penalty for Quick Check mode
-                if (journalSim === 0) {
-                    overallSim -= 25; // Journal mismatch penalty
+                if (journalSim === 0 && titleSim > 60) {
+                    overallSim -= 15; // Journal mismatch penalty
                 }
 
                 // Floor at 0
@@ -339,6 +433,7 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     confidence -= 10;
                 }
             }
+
 
             if (confidence > 100) confidence = 100;
             if (confidence < 0) confidence = 0;
