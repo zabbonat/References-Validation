@@ -22,30 +22,38 @@ bibliography: paper.bib
 
 # Summary
 
-`CheckIfExist` is an open-source, web-based application designed for the immediate verification of bibliographic references against the CrossRef scholarly metadata database. In an era where large language models increasingly permeate academic writing workflows, the tool addresses the critical challenge of distinguishing authentic citations from fabricated ones—a phenomenon known as reference hallucination. 
+`CheckIfExist` is an open-source web application developed to verify bibliographic references against CrossRef metadata in real time. As Large Language Models (LLMs) become integrated into academic drafting, the risk of "reference hallucination"—the generation of plausible but non-existent citations—has introduced a new noise factor in scholarly communication.
 
-The application accepts citations in any standard format (APA, MLA, Chicago, or free-text) as well as structured BibTeX entries, and delivers real-time validation results within seconds. Through a multi-dimensional matching algorithm that evaluates title similarity, author verification, journal correspondence, and publication year accuracy, `CheckIfExist` computes a confidence score indicating the likelihood that a given reference corresponds to an actual scholarly work. Critically, the tool detects potential fabricated authors—names present in the queried citation that do not appear among the verified authors of the matched publication—providing an essential safeguard against sophisticated LLM-generated hallucinations. For each validated reference, the application generates correctly formatted APA citations and BibTeX entries derived from authoritative CrossRef metadata, ensuring bibliographic accuracy in downstream use.
+The tool parses citations in standard formats (APA, MLA, Chicago, free-text) and structured BibTeX. It returns validation results immediately by employing a multi-dimensional matching algorithm. This algorithm evaluates title similarity, author presence, journal matching, and publication year. Crucially, `CheckIfExist` flags potential "fabricated authors"—names appearing in the input string that are absent from the verified metadata—offering a specific safeguard against the subtle fabrications typical of generative AI. Validated references can be exported as clean APA citations or BibTeX entries based on the authoritative CrossRef record.
 
 # Statement of need
 
-The foundation of scholarly communication rests upon the accuracy and verifiability of bibliographic references. Citations serve as the connective tissue of scientific discourse: they acknowledge intellectual contributions, establish provenance of ideas, enable reproducibility, and constitute the basis for quantitative research impact assessment [@garfield1972citation; @merton1973sociology]. The integrity of citation networks directly influences bibliometric indicators that shape funding decisions, hiring practices, and scientific reputation.
+The validity of the citation network is a precondition for robust bibliometric analysis. Citations do more than acknowledge prior work; they are the primary unit of measurement for impact assessment and the tracing of intellectual lineage [@garfield1972citation; @merton1973sociology]. Consequently, compromised citation data degrades the quality of indicators used for funding, recruitment, and tenure.
 
-Yet citation errors have long plagued academic publishing. Empirical studies document error rates ranging from 25% to 54% of references containing at least one inaccuracy [@siebers2000accuracy]. These errors propagate through the literature as authors copy citations without verification—a phenomenon termed citation mutation [@simkin2003read]. The consequences extend beyond individual papers: incorrect references misdirect researchers, waste resources, and undermine the cumulative architecture of scientific knowledge.
+Citation accuracy has always been a challenge. Historical error rates are significant, with studies finding inaccuracies in 25% to 54% of references [@siebers2000accuracy]. These errors often persist through "citation mutation," where authors cite papers they have not read, replicating previous errors [@simkin2003read]. However, the rise of LLMs has shifted the nature of this problem from human error to algorithmic fabrication.
 
-The widespread adoption of large language models in academic contexts has dramatically amplified these concerns. LLMs can generate citations exhibiting sophisticated verisimilitude—plausible author names, realistic journal titles, coherent publication years—that nonetheless correspond to no existing work [@alkaissi2023artificial; @ji2023survey]. Empirical investigations report hallucination rates between 6% and 30% in LLM-generated academic content, varying by model and domain [@agrawal2024language]. The stochastic nature of these fabrications renders manual detection cognitively demanding and practically unscalable.
+Unlike traditional errors, LLM hallucinations are stochastic. They generate references that mimic the morphology of real citations—correct journals, plausible dates, and real author names—but point to non-existent documents [@alkaissi2023artificial; @ji2023survey]. Hallucination rates in academic tasks are estimated between 6% and 30% [@agrawal2024language]. Manual verification of these "ghost" references is disproportionately time-consuming because they often look correct at a glance.
 
-Existing reference management tools—Zotero, Mendeley, EndNote, JabRef—provide sophisticated functionality for organizing, storing, and formatting bibliographic data [@kratochvil2017comparison]. However, these systems are architected for citation *management*, not *validation*. A hallucinated reference enters these tools indistinguishable from legitimate citations. Bibliographic databases such as Web of Science, Scopus, and Google Scholar offer search capabilities, but verification requires manual querying of each reference individually—a workflow that interrupts writing and scales poorly for comprehensive bibliography audits.
+Current reference managers (e.g., Zotero, JabRef) excel at storage and formatting but lack native validation layers [@kratochvil2017comparison]. A hallucinated entry looks the same as a valid one in a `.bib` file. While databases like Scopus or Web of Science allow for verification, they are designed for discovery, not for the high-throughput auditing of a reference list.
 
-`CheckIfExist` occupies a distinct and complementary position in the scholarly infrastructure: it provides instantaneous, automated verification at the moment researchers need it. By interfacing with the CrossRef REST API—which indexes metadata for over 140 million scholarly works—the tool delivers validation results in seconds rather than minutes. This immediacy transforms reference verification from a burdensome post-hoc task into an integrated component of the writing process itself.
+`CheckIfExist` addresses this gap by offering a lightweight, validation-centric interface. By querying the CrossRef REST API—covering over 140 million records—it allows researchers to validate references at the point of creation, reducing the likelihood that fabricated data enters the downstream bibliographic record.
 
 # Implementation
 
-The application is implemented in React with TypeScript, ensuring cross-platform browser compatibility without installation requirements. The verification pipeline operates as follows: user input (free-text or BibTeX) is parsed and submitted to the CrossRef API; the top three candidate matches are retrieved to accommodate author name variations; string similarity is computed via the Levenshtein distance metric normalized by maximum string length; author verification extracts family names from CrossRef metadata and checks their presence in the query while simultaneously detecting potential fabricated names; finally, a composite confidence score integrates these components with penalties for detected discrepancies.
+`CheckIfExist` is built as a client-side React/TypeScript application to ensure privacy and ease of access; no installation is required.
 
-Two operational modes serve different use cases. **Quick Check** enables rapid verification of individual citations during manuscript preparation or peer review. **Batch Check** processes multiple references sequentially—from BibTeX exports or newline-separated lists—with rate limiting to respect API usage policies, enabling systematic validation of entire bibliographies.
+The verification logic follows a specific sequence:
+
+1. **Parsing & Query:** The input is parsed and queried against the CrossRef API.
+2. **Fuzzy Matching:** The top three candidates are retrieved to account for inconsistencies in indexing or naming.
+3. **Metric Calculation:** Title similarity is assessed using normalized Levenshtein distance.
+4. **Author Integrity:** The system cross-references input names against metadata to identify both matches and potential fabrications.
+5. **Scoring:** A confidence score is calculated based on these weighted variables.
+
+The tool supports two workflows: a **Quick Check** for individual queries during drafting, and a **Batch Check** for validating full lists or BibTeX files, which includes rate-limiting logic to comply with API standards.
 
 # Acknowledgements
 
-The author acknowledges the CrossRef organization for providing open access to their REST API, which constitutes the foundational infrastructure enabling this tool.
+The author thanks CrossRef for maintaining the open REST API that makes this tool possible.
 
 # References
