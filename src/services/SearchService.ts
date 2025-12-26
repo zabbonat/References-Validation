@@ -59,6 +59,28 @@ const calculateSimilarity = (str1: string, str2: string): number => {
     return Math.max(0, Math.round((1 - distance / maxLength) * 100));
 };
 
+// Decode common LaTeX special characters in BibTeX
+const decodeLatex = (text: string): string => {
+    return text
+        .replace(/\{?\\'\{?([aeiouAEIOU])\}?\}?/g, '$1')  // acute: {\'a} or \'a
+        .replace(/\{?\\`\{?([aeiouAEIOU])\}?\}?/g, '$1')  // grave
+        .replace(/\{?\\\^\{?([aeiouAEIOU])\}?\}?/g, '$1') // circumflex
+        .replace(/\{?\\"\{?([aeiouAEIOU])\}?\}?/g, '$1') // umlaut
+        .replace(/\{?\\v\{?([a-zA-Z])\}?\}?/g, '$1')      // caron: {\v{r}}
+        .replace(/\{?\\~\{?([nN])\}?\}?/g, '$1')          // tilde
+        .replace(/\{?\\c\{?([cC])\}?\}?/g, '$1')          // cedilla
+        .replace(/[{}]/g, '')                              // remove remaining braces
+        .trim();
+};
+
+// Check if first letter matches (for given names)
+const firstLetterMatches = (name1: string, name2: string): boolean => {
+    const clean1 = decodeLatex(name1).replace(/[^a-zA-Z]/g, '');
+    const clean2 = decodeLatex(name2).replace(/[^a-zA-Z]/g, '');
+    if (!clean1 || !clean2) return false;
+    return clean1[0].toLowerCase() === clean2[0].toLowerCase();
+};
+
 interface ExpectedMetadata {
     title?: string;
     authors?: string;
@@ -189,6 +211,13 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                 .map((a: any) => normalize(a.family || ""))
                 .filter((name: string) => name.length > 2);
 
+            // Fetch Real Author Given Names for first-letter matching
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const realAuthorGivens: string[] = (item.author || [])
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((a: any) => (a.given || "").trim())
+                .filter((name: string) => name.length > 0);
+
             if (expected?.title) {
                 // strict validation (Batch Mode)
 
@@ -209,7 +238,9 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
 
                     // Check 2: Are there EXTRA authors in expected? (The new requirement)
                     // We split expected authors by common delimiters
-                    const expectedList = expected.authors
+                    // First decode LaTeX in expected authors
+                    const decodedExpectedAuthors = decodeLatex(expected.authors);
+                    const expectedList = decodedExpectedAuthors
                         .split(/[,&]|\sand\s/i)
                         .map(s => s.trim())
                         .filter(s => s.length > 2); // Ignore initials-only or short junk
@@ -217,10 +248,12 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     const extraAuthors = [];
                     for (const expAuth of expectedList) {
                         const nExp = normalize(expAuth);
-                        // Check if this expected author matches ANY real author
-                        // We check if nExp contains any real author OR any real author contains nExp
-                        const match = realAuthorFamilies.some(real => real.includes(nExp) || nExp.includes(real));
-                        if (!match) {
+                        // Check if this expected author matches ANY real author family name
+                        const matchesFamily = realAuthorFamilies.some(real => real.includes(nExp) || nExp.includes(real));
+                        // OR if first letter matches any real author given name
+                        const matchesGiven = realAuthorGivens.some(given => firstLetterMatches(expAuth, given));
+
+                        if (!matchesFamily && !matchesGiven) {
                             extraAuthors.push(expAuth);
                         }
                     }
@@ -332,10 +365,12 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
                     // Is this token part of the Year?
                     if (resultYear && resultYear.includes(token)) continue;
 
-                    // Is this token a Real Author?
-                    const isRealAuthor = realAuthorFamilies.some(real => real.includes(nToken) || nToken.includes(real));
+                    // Is this token a Real Author family name?
+                    const isRealAuthorFamily = realAuthorFamilies.some(real => real.includes(nToken) || nToken.includes(real));
+                    // Is this token a Real Author given name (first letter match)?
+                    const isRealAuthorGiven = realAuthorGivens.some(given => firstLetterMatches(token, given));
 
-                    if (!isRealAuthor) {
+                    if (!isRealAuthorFamily && !isRealAuthorGiven) {
                         // It's Capitalized, not title, not journal, not year, and NOT a real author.
                         // High chance it's a fake author or garbage.
                         // To be safe, we collect them.
