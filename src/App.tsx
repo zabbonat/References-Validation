@@ -9,6 +9,32 @@ import { Search, ClipboardList, Download, Copy, Check } from 'lucide-react';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ipcRenderer = (window as any).require ? (window as any).require('electron').ipcRenderer : null;
 
+/**
+ * Clean LaTeX commands from input text
+ * Removes lines containing common LaTeX formatting commands that users might accidentally paste
+ */
+const cleanLatexInput = (text: string): string => {
+  // Common LaTeX commands to filter out (lines containing these will be removed)
+  const latexCommands = [
+    '\\vspace', '\\hspace', '\\newpage', '\\pagebreak', '\\clearpage',
+    '\\noindent', '\\indent', '\\bigskip', '\\medskip', '\\smallskip',
+    '\\vfill', '\\hfill', '\\linebreak', '\\newline', '\\par',
+    '\\begin{', '\\end{', '\\setlength', '\\addtolength',
+    '\\documentclass', '\\usepackage', '\\input', '\\include'
+  ];
+
+  return text
+    .split('\n')
+    .filter(line => {
+      const trimmed = line.trim();
+      // Skip empty lines
+      if (!trimmed) return false;
+      // Skip lines that are just LaTeX commands
+      return !latexCommands.some(cmd => trimmed.startsWith(cmd));
+    })
+    .join('\n');
+};
+
 function App() {
   // Unified input
   const [input, setInput] = useState('');
@@ -42,21 +68,27 @@ function App() {
 
   const handleQuickCheck = async (text: string) => {
     if (!text) return;
+    const cleanedText = cleanLatexInput(text);
+    if (!cleanedText) return;
+
     setShowBatchView(false);
     setBatchResults([]);
     setLoadingQuick(true);
     setQuickResult(null);
-    const result = await checkWithFallback(text);
+    const result = await checkWithFallback(cleanedText);
     setQuickResult(result);
     setLoadingQuick(false);
   };
 
   const handleBatchCheck = async () => {
     if (!input) return;
+    const cleanedInput = cleanLatexInput(input);
+    if (!cleanedInput) return;
+
     setQuickResult(null);
     setShowBatchView(true);
 
-    const parsed = parseBibTex(input);
+    const parsed = parseBibTex(cleanedInput);
 
     if (parsed.length > 0) {
       const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = parsed.map(p => ({
@@ -83,8 +115,8 @@ function App() {
         setBatchResults([...newResults]);
       }
     } else {
-      // Fallback: split by newlines
-      const refs = input.split('\n').filter(l => l.trim().length > 10);
+      // Fallback: split by newlines (already cleaned)
+      const refs = cleanedInput.split('\n').filter(l => l.trim().length > 10);
 
       const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r, loading: true }));
       setBatchResults(initialResults);
