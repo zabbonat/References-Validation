@@ -1,3 +1,6 @@
+import { searchSemanticScholar, formatSemanticScholarAPA, generateSemanticScholarBibTeX } from './SemanticScholarService';
+import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX } from './OpenAlexService';
+
 export interface CheckResult {
     exists: boolean;
     title?: string;
@@ -11,6 +14,8 @@ export interface CheckResult {
     // Formatted Output
     apa?: string;
     bibtex?: string;
+    correctedApa?: string; // APA from fallback source if issues found
+    correctedBibtex?: string; // BibTeX from fallback source
 
     // Validations
     matchConfidence: number; // 0-100
@@ -19,8 +24,10 @@ export interface CheckResult {
     journalMatchScore: number;
     issues: string[]; // e.g., "Authors Mismatch"
 
-    source: 'CrossRef' | 'NotFound';
+    source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'NotFound';
+    fallbackSource?: 'SemanticScholar' | 'OpenAlex'; // Source of correction
 }
+
 
 // Levenshtein distance for string similarity
 const levenshteinDistance = (a: string, b: string): number => {
@@ -514,4 +521,131 @@ export const checkReference = async (query: string, expected?: ExpectedMetadata)
             issues: []
         };
     }
+};
+
+/**
+ * Helper to normalize author names for comparison
+ */
+const normalizeAuthorName = (name: string): string => {
+    return name.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+};
+
+/**
+ * Compare authors between sources - returns true if authors match well
+ */
+const authorsMatch = (source1Authors: string[], source2Authors: string[]): boolean => {
+    if (source1Authors.length === 0 || source2Authors.length === 0) return false;
+
+    const norm1 = source1Authors.map(normalizeAuthorName);
+    const norm2 = source2Authors.map(normalizeAuthorName);
+
+    // Check if at least 50% of authors from source1 are in source2
+    let matches = 0;
+    for (const author of norm1) {
+        const lastName = author.split(' ').pop() || author;
+        if (norm2.some(a2 => a2.includes(lastName) || lastName.includes(a2.split(' ').pop() || ''))) {
+            matches++;
+        }
+    }
+
+    return matches >= Math.ceil(source1Authors.length / 2);
+};
+
+/**
+ * Check reference with fallback to Semantic Scholar and OpenAlex
+ * If CrossRef finds issues, verify with other sources
+ * If they confirm correct data, provide corrected APA/BibTeX
+ */
+export const checkWithFallback = async (query: string, expected?: ExpectedMetadata): Promise<CheckResult> => {
+    // First, try CrossRef
+    const crossRefResult = await checkReference(query, expected);
+
+    // If not found or low confidence, try fallback sources
+    if (!crossRefResult.exists || crossRefResult.matchConfidence < 70 || crossRefResult.issues.length > 0) {
+        const title = expected?.title || query;
+
+        // Try Semantic Scholar
+        const ssResult = await searchSemanticScholar(title);
+
+        if (ssResult) {
+            const ssAuthors = ssResult.authors;
+
+            // If CrossRef wasn't found, use Semantic Scholar as primary
+            if (!crossRefResult.exists) {
+                return {
+                    exists: true,
+                    title: ssResult.title,
+                    authors: ssAuthors.join(', '),
+                    year: ssResult.year?.toString() || '',
+                    journal: ssResult.venue,
+                    url: ssResult.url,
+                    doi: ssResult.externalIds?.DOI,
+                    apa: formatSemanticScholarAPA(ssResult),
+                    bibtex: generateSemanticScholarBibTeX(ssResult),
+                    source: 'SemanticScholar',
+                    matchConfidence: 80,
+                    titleMatchScore: 90,
+                    authorMatchScore: 100,
+                    journalMatchScore: ssResult.venue ? 90 : 50,
+                    issues: []
+                };
+            }
+
+            // CrossRef found but has issues - check if Semantic Scholar confirms different authors
+            if (expected?.authors) {
+                const expectedAuthorList = expected.authors.split(/[,&]|and/i).map(a => a.trim());
+
+                if (!authorsMatch(expectedAuthorList, ssAuthors) && authorsMatch((crossRefResult.authors || '').split(', '), ssAuthors)) {
+                    // Semantic Scholar confirms CrossRef's authors - user's input is wrong
+                    crossRefResult.correctedApa = formatSemanticScholarAPA(ssResult);
+                    crossRefResult.correctedBibtex = generateSemanticScholarBibTeX(ssResult);
+                    crossRefResult.fallbackSource = 'SemanticScholar';
+                    return crossRefResult;
+                }
+            }
+        }
+
+        // Try OpenAlex
+        const oaResult = await searchOpenAlex(title);
+
+        if (oaResult) {
+            const oaAuthors = oaResult.authors;
+
+            // If still not found via CrossRef, use OpenAlex
+            if (!crossRefResult.exists) {
+                return {
+                    exists: true,
+                    title: oaResult.title,
+                    authors: oaAuthors.join(', '),
+                    year: oaResult.year?.toString() || '',
+                    journal: oaResult.journal,
+                    url: oaResult.url,
+                    doi: oaResult.doi || undefined,
+                    apa: formatOpenAlexAPA(oaResult),
+                    bibtex: generateOpenAlexBibTeX(oaResult),
+                    source: 'OpenAlex',
+                    matchConfidence: 75,
+                    titleMatchScore: 85,
+                    authorMatchScore: 100,
+                    journalMatchScore: oaResult.journal ? 85 : 50,
+                    issues: []
+                };
+            }
+
+            // CrossRef found but has issues - check if OpenAlex confirms different authors
+            if (expected?.authors) {
+                const expectedAuthorList = expected.authors.split(/[,&]|and/i).map(a => a.trim());
+
+                if (!authorsMatch(expectedAuthorList, oaAuthors) && authorsMatch((crossRefResult.authors || '').split(', '), oaAuthors)) {
+                    // OpenAlex confirms CrossRef's authors - user's input is wrong
+                    crossRefResult.correctedApa = formatOpenAlexAPA(oaResult);
+                    crossRefResult.correctedBibtex = generateOpenAlexBibTeX(oaResult);
+                    crossRefResult.fallbackSource = 'OpenAlex';
+                    return crossRefResult;
+                }
+            }
+        }
+    }
+
+    return crossRefResult;
 };

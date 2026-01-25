@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { parseBibTex } from './services/BibTexService';
-import { checkReference, type CheckResult } from './services/SearchService';
+import { checkWithFallback, type CheckResult } from './services/SearchService';
+import { generateBibFileContent, downloadBibFile, copyBibToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
-import { Search, ClipboardList } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check } from 'lucide-react';
 
 // Electron IPC (mocked for web if not present)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,6 +20,7 @@ function App() {
   // Batch State
   const [batchInput, setBatchInput] = useState('');
   const [batchResults, setBatchResults] = useState<{ ref: string, result?: CheckResult, loading: boolean }[]>([]);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -44,7 +46,7 @@ function App() {
     if (!text) return;
     setLoadingQuick(true);
     setQuickResult(null);
-    const result = await checkReference(text);
+    const result = await checkWithFallback(text);
     setQuickResult(result);
     setLoadingQuick(false);
   };
@@ -71,7 +73,7 @@ function App() {
         const p = parsed[i];
         const searchQuery = `${p.entryTags.title} ${p.entryTags.author || ""}`;
 
-        const res = await checkReference(searchQuery, {
+        const res = await checkWithFallback(searchQuery, {
           title: p.entryTags.title,
           authors: p.entryTags.author,
           journal: p.entryTags.journal,
@@ -91,7 +93,7 @@ function App() {
       const newResults = [...initialResults];
       for (let i = 0; i < refs.length; i++) {
         if (i > 0) await new Promise(resolve => setTimeout(resolve, 800));
-        const res = await checkReference(refs[i]);
+        const res = await checkWithFallback(refs[i]);
         newResults[i] = { ...newResults[i], result: res, loading: false };
         setBatchResults([...newResults]);
       }
@@ -166,12 +168,44 @@ Paper Title 2. Author Name. 2023.`}
               />
               <button
                 onClick={handleBatchCheck}
-                disabled={batchResults.some(r => r.loading) && batchResults.length > 0} // Disable if running
+                disabled={batchResults.some(r => r.loading) && batchResults.length > 0}
                 className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
               >
                 <ClipboardList size={16} />
                 <span>Batch Verify</span>
               </button>
+
+              {/* Download/Copy .bib buttons - show when results are ready */}
+              {batchResults.length > 0 && !batchResults.some(r => r.loading) && (
+                <div className="mt-3 flex space-x-2">
+                  <button
+                    onClick={() => {
+                      const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                      const bibContent = generateBibFileContent(results);
+                      downloadBibFile(bibContent, 'corrected_references.bib');
+                    }}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Download size={16} />
+                    <span>Download .bib</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                      const bibContent = generateBibFileContent(results);
+                      const success = await copyBibToClipboard(bibContent);
+                      if (success) {
+                        setCopySuccess(true);
+                        setTimeout(() => setCopySuccess(false), 2000);
+                      }
+                    }}
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                  >
+                    {copySuccess ? <Check size={16} /> : <Copy size={16} />}
+                    <span>{copySuccess ? 'Copied!' : 'Copy .bib'}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2 pb-10">
