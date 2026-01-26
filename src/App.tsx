@@ -91,10 +91,17 @@ function App() {
     const parsed = parseBibTex(cleanedInput);
 
     if (parsed.length > 0) {
-      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = parsed.map(p => ({
-        ref: p.entryTags.title || p.citationKey,
-        loading: true
-      }));
+      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = parsed.map(p => {
+        const title = p.entryTags.title || p.citationKey;
+        const author = p.entryTags.author ? ` ${p.entryTags.author}.` : '';
+        const journal = p.entryTags.journal ? ` ${p.entryTags.journal}.` : '';
+        const year = p.entryTags.year ? ` (${p.entryTags.year})` : '';
+
+        return {
+          ref: `${title}.${author}${journal}${year}`,
+          loading: true
+        };
+      });
       setBatchResults(initialResults);
 
       const newResults = [...initialResults];
