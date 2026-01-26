@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: https://zabbonat.github.io/CheckIfExist/sitemap.xml
+Sitemap: https://zabbonat.github.io/References-Validation/sitemap.xml
