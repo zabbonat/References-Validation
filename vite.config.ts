@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/References-Validation/',
+  base: '/CheckIfExist/',
   build: {
     sourcemap: false,
     chunkSizeWarningLimit: 1000,

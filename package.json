@@ -1,5 +1,5 @@
 {
-  "name": "references-validation",
+  "name": "check-if-exist",
   "private": true,
   "version": "0.0.0",
   "type": "module",
