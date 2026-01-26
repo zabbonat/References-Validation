@@ -17,7 +17,8 @@
     "react-dom": "^19.2.0"
   },
   "description": "Validation tool for academic references",
-  "author": "Antigravity",
+  "author": "Diletta Abbonato",
+  "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",

@@ -264,6 +264,17 @@ Smith, J. (2024). Title of article. Journal Name.`}
           className="h-6"
         />
       </div>
+      {/* License Footer - bottom right */}
+      <div className="fixed bottom-4 right-4 text-xs text-gray-400">
+        <a
+          href="https://github.com/zabbonat/References-Validation/blob/main/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-gray-600 transition-colors"
+        >
+          MIT License © 2024 Diletta Abbonato
+        </a>
+      </div>
     </div>
   );
 }
