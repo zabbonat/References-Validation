@@ -3,7 +3,7 @@ import { parseBibTex } from './services/BibTexService';
 import { checkWithFallback, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, downloadBibFile, copyBibToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
-import { Search, ClipboardList, Download, Copy, Check } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Users } from 'lucide-react';
 
 // Electron IPC (mocked for web if not present)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +47,24 @@ function App() {
   const [batchResults, setBatchResults] = useState<{ ref: string, result?: CheckResult, loading: boolean }[]>([]);
   const [showBatchView, setShowBatchView] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Visitor counter
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
+
+  // Fetch and increment visitor counter
+  useEffect(() => {
+    const fetchVisitorCount = async () => {
+      try {
+        // Using CountAPI - free visitor counter service
+        const response = await fetch('https://api.countapi.xyz/hit/checkifexist.zabbonat.github.io/visits');
+        const data = await response.json();
+        setVisitorCount(data.value);
+      } catch (error) {
+        console.error('Failed to fetch visitor count:', error);
+      }
+    };
+    fetchVisitorCount();
+  }, []);
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -255,6 +273,14 @@ Smith, J. (2024). Title of article. Journal Name.`}
           )}
         </div>
       </main>
+
+      {/* Visitor Counter - bottom left */}
+      {visitorCount !== null && (
+        <div className="fixed bottom-4 left-4 bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border text-xs text-gray-500 flex items-center space-x-2">
+          <Users size={14} />
+          <span>{visitorCount.toLocaleString()} visits</span>
+        </div>
+      )}
     </div>
   );
 }
