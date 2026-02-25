@@ -38,16 +38,33 @@ interface OpenAlexResponse {
 }
 
 /**
+ * Simple title similarity for best-match selection
+ */
+const titleSimilarity = (a: string, b: string): number => {
+    const clean = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    const ca = clean(a);
+    const cb = clean(b);
+    if (ca === cb) return 100;
+    const wordsA = new Set(ca.split(/\s+/));
+    const wordsB = new Set(cb.split(/\s+/));
+    let overlap = 0;
+    for (const w of wordsA) { if (wordsB.has(w)) overlap++; }
+    const maxLen = Math.max(wordsA.size, wordsB.size);
+    return maxLen > 0 ? Math.round((overlap / maxLen) * 100) : 0;
+};
+
+/**
  * Search OpenAlex for a work by title
  * @param title - The work title to search for
+ * @param expectedYear - Optional expected year to prefer the correct version
  * @returns The best matching work or null
  */
-export const searchOpenAlex = async (title: string): Promise<OpenAlexResult | null> => {
+export const searchOpenAlex = async (title: string, expectedYear?: string): Promise<OpenAlexResult | null> => {
     try {
         const encodedTitle = encodeURIComponent(title);
 
         const response = await fetch(
-            `https://api.openalex.org/works?filter=title.search:${encodedTitle}&per_page=3`,
+            `https://api.openalex.org/works?filter=title.search:${encodedTitle}&per_page=5`,
             {
                 headers: {
                     'Accept': 'application/json',
@@ -63,15 +80,36 @@ export const searchOpenAlex = async (title: string): Promise<OpenAlexResult | nu
         const data: OpenAlexResponse = await response.json();
 
         if (data.results && data.results.length > 0) {
-            const work = data.results[0];
+            // Pick the best match by title similarity + year preference
+            let bestWork = data.results[0];
+            let bestScore = -1;
+
+            for (const work of data.results) {
+                let score = titleSimilarity(title, work.title);
+
+                // Boost score if year matches expected
+                if (expectedYear && work.publication_year) {
+                    if (work.publication_year.toString() === expectedYear) {
+                        score += 20;
+                    } else if (Math.abs(work.publication_year - parseInt(expectedYear)) === 1) {
+                        score += 5;
+                    }
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestWork = work;
+                }
+            }
+
             return {
-                id: work.id,
-                title: work.title,
-                authors: work.authorships.map(a => a.author.display_name),
-                year: work.publication_year,
-                journal: work.primary_location?.source?.display_name || '',
-                doi: work.doi,
-                url: work.doi || work.id
+                id: bestWork.id,
+                title: bestWork.title,
+                authors: bestWork.authorships.map(a => a.author.display_name),
+                year: bestWork.publication_year,
+                journal: bestWork.primary_location?.source?.display_name || '',
+                doi: bestWork.doi,
+                url: bestWork.doi || bestWork.id
             };
         }
 
