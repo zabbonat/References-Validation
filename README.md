@@ -1,6 +1,6 @@
 # CheckIfExists - Reference Verification Tool 🔍
 
-**CheckIfExist** is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef, Semantic Scholar and OpenAlex database to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
+**CheckIfExist** is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef, Semantic Scholar and OpenAlex databases to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
 
 ## 🚀 Features
