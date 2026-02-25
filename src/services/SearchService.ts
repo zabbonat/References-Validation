@@ -42,6 +42,20 @@ const isPreprint = (venue: string): boolean => {
     return PREPRINT_VENUES.some(p => lower.includes(p));
 };
 
+/**
+ * Clean a query string by removing LaTeX/BibTeX artifacts ({}, \textbf, etc.)
+ * so that API queries work correctly
+ */
+const cleanQuery = (text: string): string => {
+    return text
+        .replace(/[{}]/g, '')                              // Remove curly braces: {Matthew} → Matthew
+        .replace(/\\textbf|\\textit|\\emph|\\textrm/g, '') // Remove LaTeX formatting commands
+        .replace(/\\&/g, '&')                              // LaTeX escaped ampersand
+        .replace(/~/g, ' ')                                // LaTeX non-breaking space
+        .replace(/\s{2,}/g, ' ')                           // Collapse multiple spaces
+        .trim();
+};
+
 // ===== MINIMUM TITLE SIMILARITY TO ACCEPT A RESULT =====
 // Below this threshold, the result is treated as "Not Found" rather than showing a different paper
 const MIN_TITLE_SIMILARITY = 55;
@@ -159,8 +173,20 @@ const generateBibTeX = (item: any): string => {
     return bib;
 };
 
-export const checkReference = async (query: string, expected?: ExpectedMetadata): Promise<CheckResult> => {
+export const checkReference = async (rawQuery: string, expected?: ExpectedMetadata): Promise<CheckResult> => {
     try {
+        // Clean LaTeX/BibTeX artifacts from query
+        const query = cleanQuery(rawQuery);
+
+        // Also clean expected metadata if present
+        const cleanedExpected = expected ? {
+            ...expected,
+            title: expected.title ? cleanQuery(expected.title) : expected.title,
+            authors: expected.authors ? cleanQuery(expected.authors) : expected.authors,
+            journal: expected.journal ? cleanQuery(expected.journal) : expected.journal,
+        } : expected;
+        expected = cleanedExpected;
+
         // Fetch top 5 results for better version matching
         const response = await fetch(`https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=5`);
         if (!response.ok) {
