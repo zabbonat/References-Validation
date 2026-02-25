@@ -1,14 +1,7 @@
 # CheckIfExists - Reference Verification Tool 🔍
 
-**CheckIfExist** is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef database to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
+**CheckIfExist** is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef, Semantic Scholar and OpenAlex database to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
-## 📸 Screenshots
-
-<p align="center">
-  <img src="public/2.png" width="30%" alt="Screenshot 1" />
-  <img src="public/3.png" width="30%" alt="Screenshot 2" />
-  <img src="public/4.png" width="30%" alt="Screenshot 3" />
-</p>
 
 ## 🚀 Features
 - **Quick Verification**: Verification of single references via text selection or clipboard.
@@ -41,5 +34,15 @@ If you want to run the code yourself:
     npm run dev
     ```
 
-## 📄 License
-MIT
+
+If you use CheckIfExist in your research, peer-review process, or academic workflow, please cite:
+
+> Abbonato, D. (2026). CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content. *arXiv preprint arXiv:2602.15871*.
+
+```bibtex
+@article{abbonato2026checkifexist,
+  title={CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content},
+  author={Abbonato, Diletta},
+  journal={arXiv preprint arXiv:2602.15871},
+  year={2026}
+}
