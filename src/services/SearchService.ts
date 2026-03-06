@@ -274,10 +274,13 @@ const generateBibTeX = (item: any): string => {
     return bib;
 };
 
-export const checkReference = async (rawQuery: string, expected?: ExpectedMetadata): Promise<CheckResult> => {
+export const checkReference = async (rawQuery: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
     try {
         // Clean LaTeX/BibTeX artifacts from query
         const query = cleanQuery(rawQuery);
+        // Use originalQuery for validation (checking if authors/journal/year appear in the text)
+        // This is important when retrying with extracted title — we still want to validate against the full text
+        const validationQuery = originalQuery ? cleanQuery(originalQuery) : query;
 
         // Also clean expected metadata if present
         const cleanedExpected = expected ? {
@@ -508,15 +511,17 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 overallSim = (titleSim + authorSim + journalSim + yearSim) / 4;
             } else {
                 // Free text validation (Quick Check)
+                // Use the full original text for validation (handles retry with extracted title)
+                const nValidation = normalize(validationQuery);
 
                 // ===== 1. TITLE =====
-                if (titleSim < 95 && nQuery.includes(nResultTitle)) {
+                if (titleSim < 95 && nValidation.includes(nResultTitle)) {
                     titleSim = 95;
                 }
 
                 // ===== 2. AUTHORS from CrossRef =====
-                const authorsFound = realAuthorFamilies.filter(author => nQuery.includes(author));
-                const authorsMissing = realAuthorFamilies.filter(author => !nQuery.includes(author));
+                const authorsFound = realAuthorFamilies.filter(author => nValidation.includes(author));
+                const authorsMissing = realAuthorFamilies.filter(author => !nValidation.includes(author));
 
                 if (authorsFound.length === realAuthorFamilies.length) {
                     authorSim = 100;
@@ -533,7 +538,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 }
 
                 // ===== DETECT FAKE AUTHORS (Quick Check) =====
-                const queryTokens = query.split(/[\s,.:;()]+/);
+                const queryTokens = validationQuery.split(/[\s,.:;()]+/);
                 const potentialFakeAuthors = [];
                 const stopWords = ["vol", "issue", "pp", "doi", "http", "https", "org", "com", "www"];
 
@@ -566,7 +571,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 // ===== 3. JOURNAL from CrossRef — PREPRINT AWARE =====
                 if (resultJournal && resultJournal.length > 3) {
                     const journalWords = normalize(resultJournal).split(/\s+/).filter(w => w.length >= 4);
-                    const journalInQuery = journalWords.some(word => nQuery.includes(word));
+                    const journalInQuery = journalWords.some(word => nValidation.includes(word));
 
                     if (journalInQuery) {
                         journalSim = 100;
@@ -588,7 +593,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                 // ===== 4. YEAR from CrossRef — PREPRINT AWARE =====
                 if (resultYear && resultYear.length === 4) {
-                    const yearsInQuery: string[] = query.match(/\b(19|20)\d{2}\b/g) || [];
+                    const yearsInQuery: string[] = validationQuery.match(/\b(19|20)\d{2}\b/g) || [];
 
                     if (yearsInQuery.includes(resultYear)) {
                         // Year matches - good!
@@ -736,9 +741,10 @@ const authorsMatch = (source1Authors: string[], source2Authors: string[]): boole
  * If CrossRef finds issues, verify with other sources
  * If they confirm correct data, provide corrected APA/BibTeX
  */
-export const checkWithFallback = async (query: string, expected?: ExpectedMetadata): Promise<CheckResult> => {
+export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
     // First, try CrossRef with the full query
-    let crossRefResult = await checkReference(query, expected);
+    // Pass originalQuery for validation so that even retries validate against the full original text
+    let crossRefResult = await checkReference(query, expected, originalQuery);
 
     // If not found or low confidence, try fallback sources
     if (!crossRefResult.exists || crossRefResult.matchConfidence < 70 || crossRefResult.issues.length > 0) {
@@ -879,7 +885,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                 const extractedTitle = extractLikelyTitle(query);
                 if (extractedTitle && extractedTitle !== query) {
                     console.log(`[Retry] Full query failed, retrying with extracted title: "${extractedTitle}"`);
-                    const retryResult = await checkWithFallback(extractedTitle, expected);
+                    // Pass the ORIGINAL full query so validation still checks against the full text
+                    const retryResult = await checkWithFallback(extractedTitle, expected, query);
                     if (retryResult.exists) {
                         return retryResult;
                     }
