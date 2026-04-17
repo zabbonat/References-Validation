@@ -746,8 +746,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // Pass originalQuery for validation so that even retries validate against the full original text
     let crossRefResult = await checkReference(query, expected, originalQuery);
 
-    // If not found or low confidence, try fallback sources
-    if (!crossRefResult.exists || crossRefResult.matchConfidence < 70 || crossRefResult.issues.length > 0) {
+    // If not found, low confidence (< 80%), or has issues, try fallback sources
+    if (!crossRefResult.exists || crossRefResult.matchConfidence < 80 || crossRefResult.issues.length > 0) {
         const title = expected?.title || query;
         const expectedYear = expected?.year;
 
@@ -758,9 +758,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             const ssAuthors = ssResult.authors;
             const ssTitleSim = calculateSimilarity(title, ssResult.title);
 
-            // If CrossRef wasn't found, use Semantic Scholar as primary
-            // BUT only if the title similarity is high enough
-            if (!crossRefResult.exists) {
+            // If CrossRef wasn't found, OR Semantic Scholar has a significantly better title match
+            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 80 && ssTitleSim > crossRefResult.titleMatchScore + 15)) {
                 if (ssTitleSim < MIN_TITLE_SIMILARITY) {
                     // Title doesn't match well enough — don't show a wrong paper
                     // Continue to try OpenAlex
@@ -780,7 +779,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                         titleMatchScore: ssTitleSim,
                         authorMatchScore: 100,
                         journalMatchScore: ssResult.venue ? 90 : 50,
-                        issues: []
+                        issues: !crossRefResult.exists ? [] : [`Better match found in Semantic Scholar (CrossRef confidence was ${crossRefResult.matchConfidence}%)`]
                     };
                 }
             }
@@ -818,8 +817,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             const oaAuthors = oaResult.authors;
             const oaTitleSim = calculateSimilarity(title, oaResult.title);
 
-            // If still not found via CrossRef (and SS didn't match), use OpenAlex
-            if (!crossRefResult.exists) {
+            // If still not found via CrossRef (and SS didn't match), OR OpenAlex has a significantly better title match
+            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 80 && oaTitleSim > crossRefResult.titleMatchScore + 15)) {
                 if (oaTitleSim < MIN_TITLE_SIMILARITY) {
                     // Title doesn't match — return Not Found
                     return {
@@ -848,7 +847,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                     titleMatchScore: oaTitleSim,
                     authorMatchScore: 100,
                     journalMatchScore: oaResult.journal ? 85 : 50,
-                    issues: []
+                    issues: !crossRefResult.exists ? [] : [`Better match found in OpenAlex (CrossRef confidence was ${crossRefResult.matchConfidence}%)`]
                 };
             }
 
