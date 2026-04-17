@@ -746,8 +746,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // Pass originalQuery for validation so that even retries validate against the full original text
     let crossRefResult = await checkReference(query, expected, originalQuery);
 
-    // If not found, low confidence (< 80%), or has issues, try fallback sources
-    if (!crossRefResult.exists || crossRefResult.matchConfidence < 80 || crossRefResult.issues.length > 0) {
+    // If not found, low confidence (< 90%), or has issues, try fallback sources
+    if (!crossRefResult.exists || crossRefResult.matchConfidence < 90 || crossRefResult.issues.length > 0) {
         const title = expected?.title || query;
         const expectedYear = expected?.year;
 
@@ -759,7 +759,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             const ssTitleSim = calculateSimilarity(title, ssResult.title);
 
             // If CrossRef wasn't found, OR Semantic Scholar has a significantly better title match
-            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 80 && ssTitleSim > crossRefResult.titleMatchScore + 15)) {
+            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 90 && ssTitleSim > crossRefResult.titleMatchScore + 15)) {
                 if (ssTitleSim < MIN_TITLE_SIMILARITY) {
                     // Title doesn't match well enough — don't show a wrong paper
                     // Continue to try OpenAlex
@@ -818,7 +818,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             const oaTitleSim = calculateSimilarity(title, oaResult.title);
 
             // If still not found via CrossRef (and SS didn't match), OR OpenAlex has a significantly better title match
-            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 80 && oaTitleSim > crossRefResult.titleMatchScore + 15)) {
+            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 90 && oaTitleSim > crossRefResult.titleMatchScore + 15)) {
                 if (oaTitleSim < MIN_TITLE_SIMILARITY) {
                     // Title doesn't match — return Not Found
                     return {
