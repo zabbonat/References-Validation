@@ -3,7 +3,38 @@ import { parseBibTex } from './services/BibTexService';
 import { checkWithFallback, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, downloadBibFile, copyBibToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
-import { Search, ClipboardList, Download, Copy, Check, Quote } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb } from 'lucide-react';
+
+const QUICK_CHECK_EXAMPLE = `Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. Advances in Neural Information Processing Systems, 30.`;
+
+const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
+  title={Deep Learning},
+  author={LeCun, Yann and Bengio, Yoshua and Hinton, Geoffrey},
+  journal={Nature},
+  year={2015}
+}
+
+% NOTE: This entry is intentionally wrong (wrong year and journal) to demonstrate error detection
+@article{goodfellow2014generative,
+  title={Generative Adversarial Nets},
+  author={Goodfellow, Ian and Pouget-Abadie, Jean and Mirza, Mehdi and Xu, Bing and Warde-Farley, David and Ozair, Sherjil and Courville, Aaron and Bengio, Yoshua},
+  journal={Nature},
+  year={2016}
+}
+
+@article{devlin2019bert,
+  title={BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding},
+  author={Devlin, Jacob and Chang, Ming-Wei and Lee, Kenton and Toutanova, Kristina},
+  journal={arXiv preprint arXiv:1810.04805},
+  year={2019}
+}
+
+@article{he2016deep,
+  title={Deep Residual Learning for Image Recognition},
+  author={He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
+  journal={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+  year={2016}
+}`;
 
 // Electron IPC (mocked for web if not present)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,9 +111,10 @@ function App() {
     setLoadingQuick(false);
   };
 
-  const handleBatchCheck = async () => {
-    if (!input) return;
-    const cleanedInput = cleanLatexInput(input);
+  const handleBatchCheck = async (text?: string) => {
+    const source = text || input;
+    if (!source) return;
+    const cleanedInput = cleanLatexInput(source);
     if (!cleanedInput) return;
 
     setQuickResult(null);
@@ -244,12 +276,38 @@ Smith, J. (2024). Title of article. Journal Name.`}
                 <span>{loadingQuick ? 'Verifying...' : 'Quick Check'}</span>
               </button>
               <button
-                onClick={handleBatchCheck}
+                onClick={() => handleBatchCheck()}
                 disabled={!input || batchResults.some(r => r.loading)}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
               >
                 <ClipboardList size={18} />
                 <span>Batch Check</span>
+              </button>
+            </div>
+
+            {/* Try an Example links */}
+            <div className="mt-3 flex justify-center space-x-6">
+              <button
+                onClick={() => {
+                  setInput(QUICK_CHECK_EXAMPLE);
+                  handleQuickCheck(QUICK_CHECK_EXAMPLE);
+                }}
+                disabled={loadingQuick}
+                className="text-xs text-blue-500 hover:text-blue-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
+              >
+                <Lightbulb size={12} />
+                <span>Try Quick Check example</span>
+              </button>
+              <button
+                onClick={() => {
+                  setInput(BATCH_CHECK_EXAMPLE);
+                  handleBatchCheck(BATCH_CHECK_EXAMPLE);
+                }}
+                disabled={batchResults.some(r => r.loading)}
+                className="text-xs text-purple-500 hover:text-purple-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
+              >
+                <Lightbulb size={12} />
+                <span>Try Batch Check example</span>
               </button>
             </div>
           </div>
