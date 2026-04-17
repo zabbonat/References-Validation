@@ -3,7 +3,7 @@ import { parseBibTex } from './services/BibTexService';
 import { checkWithFallback, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, downloadBibFile, copyBibToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
-import { Search, ClipboardList, Download, Copy, Check } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Quote } from 'lucide-react';
 
 // Electron IPC (mocked for web if not present)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -263,13 +263,22 @@ Smith, J. (2024). Title of article. Journal Name.`}
         </div>
       </main>
 
-      {/* Visitor Counter - bottom left using badge image */}
-      <div className="fixed bottom-4 left-4">
+      {/* Visitor Counter & Cite - bottom left */}
+      <div className="fixed bottom-4 left-4 flex items-center space-x-2">
         <img
           src="https://visitor-badge.laobi.icu/badge?page_id=zabbonat.checkifexist"
           alt="Visitors"
           className="h-6"
         />
+        <a
+          href="https://scholar.google.com/citations?view_op=view_citation&hl=en&user=no8pRaUAAAAJ&citation_for_view=no8pRaUAAAAJ:kNdYIx-mwKoC"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-full transition-colors shadow-sm"
+        >
+          <Quote size={12} />
+          <span>Cite</span>
+        </a>
       </div>
       {/* License Footer - bottom right */}
       <div className="fixed bottom-4 right-4 text-xs text-gray-400">
@@ -279,7 +288,7 @@ Smith, J. (2024). Title of article. Journal Name.`}
           rel="noopener noreferrer"
           className="hover:text-gray-600 transition-colors"
         >
-          MIT License © 2024 Diletta Abbonato
+          MIT License © 2026 Diletta Abbonato
         </a>
       </div>
     </div>
