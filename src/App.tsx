@@ -22,11 +22,11 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   year={2016}
 }
 
-@article{devlin2019bert,
-  title={BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding},
-  author={Devlin, Jacob and Chang, Ming-Wei and Lee, Kenton and Toutanova, Kristina},
-  journal={arXiv preprint arXiv:1810.04805},
-  year={2019}
+@article{krizhevsky2012imagenet,
+  title={ImageNet Classification with Deep Convolutional Neural Networks},
+  author={Krizhevsky, Alex and Sutskever, Ilya and Hinton, Geoffrey E.},
+  journal={Advances in Neural Information Processing Systems},
+  year={2012}
 }
 
 @article{he2016deep,
