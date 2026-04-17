@@ -749,7 +749,12 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // If not found, low confidence (< 90%), or has issues, try fallback sources
     if (!crossRefResult.exists || crossRefResult.matchConfidence < 90 || crossRefResult.issues.length > 0) {
         const title = expected?.title || query;
-        const expectedYear = expected?.year;
+
+        // Try to extract expected year from query if not explicitly provided
+        const extractSource = originalQuery || query;
+        const extractedYears = !expected?.year ? Array.from(extractSource.match(/\b(19|20)\d{2}\b/g) || []) : [];
+        const expectedYear = expected?.year || (extractedYears.length > 0 ? String(extractedYears[0]) : undefined);
+
 
         // Try Semantic Scholar (pass expectedYear for version-aware selection)
         const ssResult = await searchSemanticScholar(title, expectedYear);
@@ -759,7 +764,10 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             const ssTitleSim = calculateSimilarity(title, ssResult.title);
 
             // If CrossRef wasn't found, OR Semantic Scholar has a significantly better title match
-            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 90 && ssTitleSim > crossRefResult.titleMatchScore + 15)) {
+            const hasBetterTitle = (ssTitleSim >= 95 && ssTitleSim > crossRefResult.titleMatchScore) || 
+                                   (ssTitleSim > crossRefResult.titleMatchScore + 10);
+
+            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 90 && hasBetterTitle)) {
                 if (ssTitleSim < MIN_TITLE_SIMILARITY) {
                     // Title doesn't match well enough — don't show a wrong paper
                     // Continue to try OpenAlex
@@ -818,7 +826,10 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             const oaTitleSim = calculateSimilarity(title, oaResult.title);
 
             // If still not found via CrossRef (and SS didn't match), OR OpenAlex has a significantly better title match
-            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 90 && oaTitleSim > crossRefResult.titleMatchScore + 15)) {
+            const hasBetterTitle = (oaTitleSim >= 95 && oaTitleSim > crossRefResult.titleMatchScore) || 
+                                   (oaTitleSim > crossRefResult.titleMatchScore + 10);
+
+            if (!crossRefResult.exists || (crossRefResult.matchConfidence < 90 && hasBetterTitle)) {
                 if (oaTitleSim < MIN_TITLE_SIMILARITY) {
                     // Title doesn't match — return Not Found
                     return {
