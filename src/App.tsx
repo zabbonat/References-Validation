@@ -5,7 +5,7 @@ import { generateBibFileContent, downloadBibFile, copyBibToClipboard } from './s
 import { CheckResultCard } from './components/CheckResultCard';
 import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb } from 'lucide-react';
 
-const QUICK_CHECK_EXAMPLE = `Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. Advances in Neural Information Processing Systems, 30.`;
+const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
 
 const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   title={Deep Learning},
