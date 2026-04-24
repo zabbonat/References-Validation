@@ -317,6 +317,27 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
             const nQuery = normalize(query);
 
+            // Helper: extract ALL years from a CrossRef item (published, published-print, published-online, issued, created)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const getAllYears = (item: any): string[] => {
+                const years = new Set<string>();
+                const dateFields = ['published', 'published-print', 'published-online', 'issued', 'created'];
+                for (const field of dateFields) {
+                    const year = item[field]?.['date-parts']?.[0]?.[0];
+                    if (year) years.add(year.toString());
+                }
+                return [...years];
+            };
+
+            // Helper: get the primary displayed year (prefer published-print > published > issued)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const getPrimaryYear = (item: any): string => {
+                return item['published-print']?.['date-parts']?.[0]?.[0]?.toString()
+                    || item.published?.['date-parts']?.[0]?.[0]?.toString()
+                    || item.issued?.['date-parts']?.[0]?.[0]?.toString()
+                    || '';
+            };
+
             // ===== SELECT BEST MATCH =====
             // Use combined score: title + year + journal to prefer the version matching user's metadata
             let bestItem = items[0];
@@ -324,7 +345,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
             for (const item of items) {
                 const iTitle: string = item.title?.[0] || "";
-                const iYear: string = item.published?.['date-parts']?.[0]?.[0]?.toString() || "";
+                const iYears = getAllYears(item);
+                const iPrimaryYear = getPrimaryYear(item);
                 const iJournal: string = item['container-title']?.[0] || "";
 
                 let titleScore = 0;
@@ -343,16 +365,16 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 let combinedScore = titleScore * 3; // Title is most important
 
                 // Year bonus (when expected metadata is provided)
-                if (expected?.year && iYear) {
-                    if (expected.year === iYear) {
-                        combinedScore += 40; // Strong boost for exact year match
-                    } else if (Math.abs(parseInt(expected.year) - parseInt(iYear)) === 1) {
+                if (expected?.year) {
+                    if (iYears.includes(expected.year)) {
+                        combinedScore += 40; // Strong boost: any date field matches
+                    } else if (iPrimaryYear && Math.abs(parseInt(expected.year) - parseInt(iPrimaryYear)) <= 1) {
                         combinedScore += 10; // Small boost for ±1 year
                     }
                 } else if (!expected?.title) {
-                    // Quick Check: check if year from query matches
+                    // Quick Check: check if year from query matches any date field
                     const yearsInQuery: string[] = Array.from(query.match(/\b(19|20)\d{2}\b/g) || []);
-                    if (yearsInQuery.length > 0 && iYear && yearsInQuery.indexOf(iYear) >= 0) {
+                    if (yearsInQuery.length > 0 && iYears.some(y => yearsInQuery.includes(y))) {
                         combinedScore += 30;
                     }
                 }
@@ -374,7 +396,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             const resultTitle = item.title?.[0] || "";
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const resultAuthors = (item.author || []).map((a: any) => a.family).join(", ");
-            const resultYear = item.published?.['date-parts']?.[0]?.[0]?.toString() || "";
+            const resultYear = getPrimaryYear(item);
+            const resultAllYears = getAllYears(item);
             const resultJournal = item['container-title']?.[0] || "";
 
             // ===== TITLE SIMILARITY CHECK =====
@@ -501,21 +524,24 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     journalSim = 100; // No journal to compare
                 }
 
-                // ===== YEAR MATCHING (Batch Mode) — PREPRINT AWARE =====
+                // ===== YEAR MATCHING (Batch Mode) — MULTI-DATE AWARE =====
                 let yearSim = 100;
                 if (expected.year && resultYear) {
-                    if (expected.year === resultYear) {
-                        yearSim = 100;
+                    // Check if the expected year matches ANY of the CrossRef date fields
+                    if (expected.year === resultYear || resultAllYears.includes(expected.year)) {
+                        yearSim = 100; // Exact match with any date field
                     } else {
                         const yearDiff = Math.abs(parseInt(expected.year) - parseInt(resultYear));
                         const eitherIsPreprint = isPreprint(expected.journal || '') || isPreprint(resultJournal);
 
                         if (yearDiff <= 2 && eitherIsPreprint) {
-                            // Preprint→published year difference (1-2 years is normal)
                             yearSim = 85;
                             issues.push(`Year differs by ${yearDiff} year(s): expected ${expected.year}, found ${resultYear} (likely preprint/published version)`);
-                        } else if (yearDiff === 1 && titleSim > 80) {
-                            // Even without preprint label, ±1 year with high title match is likely a version difference
+                        } else if (yearDiff <= 2 && titleSim > 80) {
+                            // Even without preprint label, ±2 year with high title match is likely online-first vs print
+                            yearSim = 85;
+                            issues.push(`Note: expected ${expected.year}, CrossRef shows ${resultYear} (likely online-first vs print date)`);
+                        } else if (yearDiff === 1 && titleSim > 70) {
                             yearSim = 75;
                             issues.push(`Year differs by 1: expected ${expected.year}, found ${resultYear} (possible version difference)`);
                         } else {
@@ -689,24 +715,23 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 if (resultYear && resultYear.length === 4) {
                     const yearsInQuery: string[] = validationQuery.match(/\b(19|20)\d{2}\b/g) || [];
 
-                    if (yearsInQuery.includes(resultYear)) {
-                        // Year matches - good!
+                    // Check if ANY date field matches the user's year
+                    if (yearsInQuery.includes(resultYear) || yearsInQuery.some(y => resultAllYears.includes(y))) {
+                        // Year matches one of the CrossRef date fields - good!
                     } else if (yearsInQuery.length > 0) {
                         const yearDiff = Math.abs(parseInt(yearsInQuery[0]) - parseInt(resultYear));
                         const resultIsPreprint = isPreprint(resultJournal);
 
                         if (yearDiff <= 2 && resultIsPreprint) {
-                            // Preprint version difference
                             issues.push(`Note: year ${yearsInQuery[0]} vs ${resultYear} (preprint/published version difference)`);
-                            overallSim -= 5; // Very mild penalty
+                            overallSim -= 5;
+                        } else if (yearDiff <= 2 && titleSim > 80) {
+                            // Online-first vs print, common 1-2 year gap
+                            issues.push(`Note: year ${yearsInQuery[0]} vs ${resultYear} (likely online-first vs print date)`);
+                            overallSim -= 5;
                         } else if (yearDiff === 1 && titleSim > 70) {
-                            // Likely version difference even without explicit preprint label
                             issues.push(`Year differs by 1: you wrote ${yearsInQuery[0]}, actual is ${resultYear} (possible version difference)`);
                             overallSim -= 10;
-                        } else if (yearDiff <= 2 && titleSim > 85) {
-                            // 2-year difference with very high title match — likely publication lag
-                            issues.push(`Year differs by ${yearDiff}: you wrote ${yearsInQuery[0]}, actual is ${resultYear} (possible version difference)`);
-                            overallSim -= 15;
                         } else {
                             issues.push(`Year Mismatch: you wrote ${yearsInQuery[0]}, actual is ${resultYear}`);
                             overallSim -= 25;
@@ -875,7 +900,10 @@ const resolveByDOI = async (doi: string): Promise<CheckResult | null> => {
         const resultTitle = item.title?.[0] || '';
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const resultAuthors = (item.author || []).map((a: any) => a.family).join(', ');
-        const resultYear = item.published?.['date-parts']?.[0]?.[0]?.toString() || '';
+        const resultYear = item['published-print']?.['date-parts']?.[0]?.[0]?.toString()
+            || item.published?.['date-parts']?.[0]?.[0]?.toString()
+            || item.issued?.['date-parts']?.[0]?.[0]?.toString()
+            || '';
         const resultJournal = item['container-title']?.[0] || '';
 
         // Check for retraction
