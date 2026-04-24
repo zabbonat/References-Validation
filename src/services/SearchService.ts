@@ -788,6 +788,21 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             if (confidence > 100) confidence = 100;
             if (confidence < 0) confidence = 0;
 
+            // ===== REJECT LOW-CONFIDENCE RESULTS =====
+            // If too many things don't match, this is probably the wrong paper entirely
+            // (e.g., a book review instead of the book, a different paper with similar title)
+            if (confidence < 40 || issues.length >= 3) {
+                return {
+                    exists: false,
+                    source: 'NotFound',
+                    matchConfidence: 0,
+                    titleMatchScore: titleSim,
+                    authorMatchScore: authorSim,
+                    journalMatchScore: journalSim,
+                    issues: ['Result rejected — too many mismatches (likely wrong paper found)']
+                };
+            }
+
             return {
                 exists: true,
                 title: resultTitle,
