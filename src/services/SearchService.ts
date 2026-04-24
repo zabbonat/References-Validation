@@ -10,6 +10,7 @@ export interface CheckResult {
     url?: string;
     doi?: string;
     score?: number; // CrossRef score
+    retracted?: boolean; // Whether the paper has been retracted
 
     // Formatted Output
     apa?: string;
@@ -27,6 +28,10 @@ export interface CheckResult {
     source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'NotFound';
     fallbackSource?: 'SemanticScholar' | 'OpenAlex'; // Source of correction
 }
+
+// Rate limiting delay between batch requests (ms)
+// Semantic Scholar: 100 req / 5 min = ~3 sec between requests to be safe
+export const BATCH_REQUEST_DELAY = 1200;
 
 // ===== PREPRINT VENUE DETECTION =====
 const PREPRINT_VENUES = [
@@ -843,10 +848,89 @@ const scoreCandidateResult = (
 };
 
 /**
+ * Try to resolve a DOI directly via CrossRef for exact match.
+ * Returns a CheckResult with 100% confidence if found.
+ */
+const resolveByDOI = async (doi: string): Promise<CheckResult | null> => {
+    try {
+        const cleanDoi = doi.replace(/^https?:\/\/doi\.org\//i, '').trim();
+        const response = await fetch(`https://api.crossref.org/works/${encodeURIComponent(cleanDoi)}`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const item = data.message;
+        if (!item) return null;
+
+        const resultTitle = item.title?.[0] || '';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const resultAuthors = (item.author || []).map((a: any) => a.family).join(', ');
+        const resultYear = item.published?.['date-parts']?.[0]?.[0]?.toString() || '';
+        const resultJournal = item['container-title']?.[0] || '';
+
+        // Check for retraction
+        const isRetracted = Boolean(item['update-to']?.some?.((u: any) => u.type === 'retraction') ||
+            item['relation']?.['is-retracted-by']?.length > 0);
+
+        const issues: string[] = [];
+        if (isRetracted) {
+            issues.push('⚠️ This paper has been RETRACTED');
+        }
+
+        return {
+            exists: true,
+            title: resultTitle,
+            authors: resultAuthors,
+            year: resultYear,
+            journal: resultJournal,
+            url: item.URL,
+            doi: item.DOI,
+            score: 100,
+            retracted: isRetracted,
+            apa: formatAPA(item),
+            bibtex: generateBibTeX(item),
+            source: 'CrossRef',
+            matchConfidence: 100,
+            titleMatchScore: 100,
+            authorMatchScore: 100,
+            journalMatchScore: 100,
+            issues
+        };
+    } catch {
+        return null;
+    }
+};
+
+/**
+ * Extract DOI from a query string
+ */
+const extractDOI = (text: string): string | null => {
+    const patterns = [
+        /(?:DOI\s*[：:]\s*)(10\.\d{4,9}\/[^\s,;]+)/i,
+        /(?:https?:\/\/doi\.org\/)(10\.\d{4,9}\/[^\s,;]+)/i,
+        /\b(10\.\d{4,9}\/[^\s,;]+)/
+    ];
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) return match[1].replace(/[.\s]+$/, '');
+    }
+    return null;
+};
+
+/**
  * Check reference against ALL THREE sources simultaneously (CrossRef, Semantic Scholar, OpenAlex).
+ * If a DOI is present, resolves directly for 100% accuracy.
  * Picks the best result across all sources using a unified scoring function.
  */
 export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
+    // ===== DOI DIRECT LOOKUP =====
+    // If the query or expected metadata contains a DOI, try direct resolution first
+    const queryDOI = extractDOI(originalQuery || query);
+    if (queryDOI) {
+        const doiResult = await resolveByDOI(queryDOI);
+        if (doiResult) {
+            return doiResult;
+        }
+    }
+
     const title = expected?.title || query;
 
     // Extract expected year from query if not explicitly provided
@@ -854,6 +938,13 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     const extractedYears = !expected?.year ? Array.from(extractSource.match(/\b(19|20)\d{2}\b/g) || []) : [];
     const expectedYear = expected?.year || (extractedYears.length > 0 ? String(extractedYears[0]) : undefined);
     const expectedJournal = expected?.journal;
+
+    // ===== FUTURE YEAR VALIDATION =====
+    const currentYear = new Date().getFullYear();
+    const futureYearIssues: string[] = [];
+    if (expectedYear && parseInt(expectedYear) > currentYear + 1) {
+        futureYearIssues.push(`⚠️ Year ${expectedYear} is in the future — verify this is correct`);
+    }
 
     // Determine search title for SS/OA (clean it up for better API results)
     const fallbackSearchTitle = expected?.title || extractLikelyTitle(query) || query;
@@ -983,6 +1074,10 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                 winner.issues = [`Better match found in ${otherBest.source} (CrossRef confidence was ${best.result.matchConfidence}%)`];
                 return winner;
             }
+            // Add future year issues if applicable
+            if (futureYearIssues.length > 0) {
+                crossRefResult.issues = [...crossRefResult.issues, ...futureYearIssues];
+            }
             return crossRefResult;
         }
 
@@ -990,6 +1085,10 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         const winner = best.result;
         if (crossRefResult.exists) {
             winner.issues = [`Better match found in ${best.source} (CrossRef confidence was ${crossRefResult.matchConfidence}%)`];
+        }
+        // Add future year issues
+        if (futureYearIssues.length > 0) {
+            winner.issues = [...winner.issues, ...futureYearIssues];
         }
         return winner;
     }

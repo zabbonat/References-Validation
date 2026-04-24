@@ -1,6 +1,6 @@
 /**
- * BibTeX Export Service
- * Handles generation and download of .bib files from batch results
+ * Reference Export Service
+ * Handles generation and download of .bib and APA files from batch results
  */
 
 import type { CheckResult } from './SearchService';
@@ -19,10 +19,20 @@ export const generateBibFileContent = (results: CheckResult[]): string => {
 };
 
 /**
- * Download content as a .bib file
+ * Generate a combined APA citation list from multiple check results
  */
-export const downloadBibFile = (content: string, filename: string = 'references.bib'): void => {
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+export const generateAPAFileContent = (results: CheckResult[]): string => {
+    return results
+        .filter(r => r.exists && r.apa)
+        .map((r, i) => `[${i + 1}] ${r.apa}`)
+        .join('\n\n');
+};
+
+/**
+ * Download content as a file
+ */
+export const downloadFile = (content: string, filename: string, mimeType: string = 'text/plain;charset=utf-8'): void => {
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement('a');
@@ -36,9 +46,16 @@ export const downloadBibFile = (content: string, filename: string = 'references.
 };
 
 /**
- * Copy .bib content to clipboard
+ * Download content as a .bib file (convenience wrapper)
  */
-export const copyBibToClipboard = async (content: string): Promise<boolean> => {
+export const downloadBibFile = (content: string, filename: string = 'references.bib'): void => {
+    downloadFile(content, filename);
+};
+
+/**
+ * Copy content to clipboard
+ */
+export const copyToClipboard = async (content: string): Promise<boolean> => {
     try {
         await navigator.clipboard.writeText(content);
         return true;
@@ -47,3 +64,6 @@ export const copyBibToClipboard = async (content: string): Promise<boolean> => {
         return false;
     }
 };
+
+// Backward compatibility aliases
+export const copyBibToClipboard = copyToClipboard;

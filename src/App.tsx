@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { parseBibTex } from './services/BibTexService';
-import { checkWithFallback, type CheckResult } from './services/SearchService';
-import { generateBibFileContent, downloadBibFile, copyBibToClipboard } from './services/BibExportService';
+import { parsePlainTextRefs, detectDuplicates } from './services/PlainTextParser';
+import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
+import { generateBibFileContent, generateAPAFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
-import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter } from 'lucide-react';
 
 const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
 
@@ -66,6 +67,15 @@ const cleanLatexInput = (text: string): string => {
     .join('\n');
 };
 
+type FilterType = 'all' | 'verified' | 'partial' | 'notfound' | 'issues';
+
+interface BatchItem {
+  ref: string;
+  result?: CheckResult;
+  loading: boolean;
+  duplicateOf?: number;
+}
+
 function App() {
   // Unified input
   const [input, setInput] = useState('');
@@ -75,9 +85,11 @@ function App() {
   const [loadingQuick, setLoadingQuick] = useState(false);
 
   // Batch State
-  const [batchResults, setBatchResults] = useState<{ ref: string, result?: CheckResult, loading: boolean }[]>([]);
+  const [batchResults, setBatchResults] = useState<BatchItem[]>([]);
   const [showBatchView, setShowBatchView] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -119,11 +131,13 @@ function App() {
 
     setQuickResult(null);
     setShowBatchView(true);
+    setFilter('all');
 
     const parsed = parseBibTex(cleanedInput);
 
     if (parsed.length > 0) {
-      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = parsed.map(p => {
+      // BibTeX input
+      const initialResults: BatchItem[] = parsed.map(p => {
         const title = p.entryTags.title || p.citationKey;
         const author = p.entryTags.author ? ` ${p.entryTags.author}.` : '';
         const journal = p.entryTags.journal ? ` ${p.entryTags.journal}.` : '';
@@ -135,10 +149,11 @@ function App() {
         };
       });
       setBatchResults(initialResults);
+      setBatchProgress({ current: 0, total: parsed.length });
 
       const newResults = [...initialResults];
       for (let i = 0; i < parsed.length; i++) {
-        if (i > 0) await new Promise(resolve => setTimeout(resolve, 800));
+        if (i > 0) await new Promise(resolve => setTimeout(resolve, BATCH_REQUEST_DELAY));
 
         const p = parsed[i];
         const searchQuery = `${p.entryTags.title} ${p.entryTags.author || ""}`;
@@ -152,83 +167,245 @@ function App() {
 
         newResults[i] = { ...newResults[i], result: res, loading: false };
         setBatchResults([...newResults]);
+        setBatchProgress({ current: i + 1, total: parsed.length });
       }
     } else {
-      // Fallback: split by newlines (already cleaned)
-      const refs = cleanedInput.split('\n').filter(l => l.trim().length > 10);
+      // Plain-text input — use smart parser
+      const plainRefs = parsePlainTextRefs(cleanedInput);
+      
+      // Detect duplicates
+      const duplicateMap = detectDuplicates(plainRefs);
+      // Build a reverse map: duplicateIdx -> originalIdx+1 (for display)
+      const duplicateOfMap = new Map<number, number>();
+      for (const [origIdx, dupIndices] of duplicateMap.entries()) {
+        for (const dupIdx of dupIndices) {
+          duplicateOfMap.set(dupIdx, (plainRefs[origIdx].refNumber || origIdx + 1));
+        }
+      }
 
-      const initialResults: { ref: string; result?: CheckResult; loading: boolean }[] = refs.map(r => ({ ref: r, loading: true }));
+      const initialResults: BatchItem[] = plainRefs.map((r, i) => ({
+        ref: r.raw,
+        loading: true,
+        duplicateOf: duplicateOfMap.get(i)
+      }));
       setBatchResults(initialResults);
+      setBatchProgress({ current: 0, total: plainRefs.length });
 
       const newResults = [...initialResults];
-      for (let i = 0; i < refs.length; i++) {
-        if (i > 0) await new Promise(resolve => setTimeout(resolve, 800));
-        const res = await checkWithFallback(refs[i]);
+      for (let i = 0; i < plainRefs.length; i++) {
+        if (i > 0) await new Promise(resolve => setTimeout(resolve, BATCH_REQUEST_DELAY));
+        
+        const pRef = plainRefs[i];
+        
+        // Use parsed metadata if available, otherwise fall back to raw text
+        const hasStructured = pRef.title && pRef.title.length > 5;
+        
+        let res: CheckResult;
+        if (hasStructured) {
+          const searchQuery = `${pRef.title} ${pRef.authors || ''}`;
+          res = await checkWithFallback(searchQuery, {
+            title: pRef.title,
+            authors: pRef.authors,
+            journal: pRef.journal,
+            year: pRef.year
+          }, pRef.raw);
+        } else {
+          res = await checkWithFallback(pRef.raw);
+        }
+
         newResults[i] = { ...newResults[i], result: res, loading: false };
         setBatchResults([...newResults]);
+        setBatchProgress({ current: i + 1, total: plainRefs.length });
       }
     }
   };
 
   const allBatchDone = batchResults.length > 0 && !batchResults.some(r => r.loading);
+  
+  // Compute summary stats
+  const stats = useMemo(() => {
+    if (!allBatchDone) return null;
+    const results = batchResults.filter(r => r.result);
+    const verified = results.filter(r => r.result!.exists && r.result!.matchConfidence > 80).length;
+    const partial = results.filter(r => r.result!.exists && r.result!.matchConfidence <= 80).length;
+    const notFound = results.filter(r => !r.result!.exists).length;
+    const withIssues = results.filter(r => r.result!.issues.length > 0).length;
+    const retracted = results.filter(r => r.result!.retracted).length;
+    return { verified, partial, notFound, withIssues, retracted, total: results.length };
+  }, [allBatchDone, batchResults]);
+
+  // Filter batch results
+  const filteredBatchResults = useMemo(() => {
+    if (filter === 'all') return batchResults;
+    return batchResults.filter(r => {
+      if (!r.result) return true; // show loading items
+      switch (filter) {
+        case 'verified': return r.result.exists && r.result.matchConfidence > 80;
+        case 'partial': return r.result.exists && r.result.matchConfidence <= 80;
+        case 'notfound': return !r.result.exists;
+        case 'issues': return r.result.issues.length > 0;
+        default: return true;
+      }
+    });
+  }, [batchResults, filter]);
 
   // Check if we should show batch view (dedicated page)
   if (showBatchView) {
+    const progressPct = batchProgress.total > 0 ? Math.round((batchProgress.current / batchProgress.total) * 100) : 0;
+
     return (
       <div className="bg-gray-50 min-h-screen flex flex-col font-sans">
-        <header className="bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
-          <div className="flex items-center space-x-3">
-            <ClipboardList className="text-blue-600" size={20} />
-            <h1 className="font-bold text-lg text-gray-800">Batch Check Results</h1>
-            {allBatchDone && (
-              <button
-                onClick={async () => {
-                  const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
-                  const bibContent = generateBibFileContent(results);
-                  const success = await copyBibToClipboard(bibContent);
-                  if (success) {
-                    setCopySuccess(true);
-                    setTimeout(() => setCopySuccess(false), 2000);
-                  }
-                }}
-                className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
-              >
-                {copySuccess ? <Check size={14} /> : <Copy size={14} />}
-                <span>{copySuccess ? 'Copied!' : 'Copy .bib'}</span>
-              </button>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            {allBatchDone && (
+        <header className="bg-white border-b px-4 py-3 shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
+          {/* Top row: title + buttons */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3">
+              <ClipboardList className="text-blue-600" size={20} />
+              <h1 className="font-bold text-lg text-gray-800">Batch Check Results</h1>
+              {allBatchDone && (
+                <button
+                  onClick={async () => {
+                    const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                    const bibContent = generateBibFileContent(results);
+                    const success = await copyToClipboard(bibContent);
+                    if (success) {
+                      setCopySuccess(true);
+                      setTimeout(() => setCopySuccess(false), 2000);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                >
+                  {copySuccess ? <Check size={14} /> : <Copy size={14} />}
+                  <span>{copySuccess ? 'Copied!' : 'Copy .bib'}</span>
+                </button>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              {allBatchDone && (
+                <>
+                  <button
+                    onClick={() => {
+                      const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                      const bibContent = generateBibFileContent(results);
+                      downloadBibFile(bibContent, 'corrected_references.bib');
+                    }}
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                  >
+                    <Download size={14} />
+                    <span>Download .bib</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                      const apaContent = generateAPAFileContent(results);
+                      downloadFile(apaContent, 'corrected_references_APA.txt');
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                  >
+                    <Download size={14} />
+                    <span>Download APA</span>
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => {
-                  const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
-                  const bibContent = generateBibFileContent(results);
-                  downloadBibFile(bibContent, 'corrected_references.bib');
+                  setShowBatchView(false);
+                  setBatchResults([]);
+                  setBatchProgress({ current: 0, total: 0 });
                 }}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
               >
-                <Download size={16} />
-                <span>Download .bib</span>
+                ← Back
               </button>
-            )}
-            <button
-              onClick={() => {
-                setShowBatchView(false);
-                setBatchResults([]);
-              }}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
-            >
-              ← Back
-            </button>
+            </div>
           </div>
+
+          {/* Progress bar */}
+          {!allBatchDone && batchProgress.total > 0 && (
+            <div className="mb-2">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>Checking references...</span>
+                <span>{batchProgress.current} / {batchProgress.total} ({progressPct}%)</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Summary stats (shown when done) */}
+          {allBatchDone && stats && (
+            <div className="flex items-center space-x-4 text-xs mb-2">
+              <span className="flex items-center space-x-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full font-semibold">
+                <span>✓ {stats.verified} Verified</span>
+              </span>
+              {stats.partial > 0 && (
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-yellow-100 text-yellow-700 rounded-full font-semibold">
+                  <span>⚠ {stats.partial} Partial</span>
+                </span>
+              )}
+              {stats.notFound > 0 && (
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full font-semibold">
+                  <span>✗ {stats.notFound} Not Found</span>
+                </span>
+              )}
+              {stats.withIssues > 0 && (
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full font-semibold">
+                  <span>! {stats.withIssues} With Issues</span>
+                </span>
+              )}
+              {stats.retracted > 0 && (
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-200 text-red-800 rounded-full font-bold">
+                  <span>⚠ {stats.retracted} Retracted</span>
+                </span>
+              )}
+              <span className="text-gray-400">Total: {stats.total}</span>
+            </div>
+          )}
+
+          {/* Filter bar (shown when done) */}
+          {allBatchDone && (
+            <div className="flex items-center space-x-2">
+              <Filter size={14} className="text-gray-400" />
+              {(['all', 'verified', 'partial', 'notfound', 'issues'] as FilterType[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
+                    filter === f 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {f === 'all' ? `All (${batchResults.length})` :
+                   f === 'verified' ? `Verified (${stats?.verified || 0})` :
+                   f === 'partial' ? `Partial (${stats?.partial || 0})` :
+                   f === 'notfound' ? `Not Found (${stats?.notFound || 0})` :
+                   `Issues (${stats?.withIssues || 0})`}
+                </button>
+              ))}
+            </div>
+          )}
         </header>
 
         <main className="flex-1 p-4 overflow-auto">
           <div className="max-w-5xl mx-auto space-y-3">
-            {batchResults.map((item, i) => (
-              <CheckResultCard key={i} reference={item.ref} result={item.result} loading={item.loading} />
+            {filteredBatchResults.map((item, i) => (
+              <CheckResultCard 
+                key={i} 
+                reference={item.ref} 
+                result={item.result} 
+                loading={item.loading}
+                duplicateOf={item.duplicateOf}
+              />
             ))}
+            {filteredBatchResults.length === 0 && allBatchDone && (
+              <div className="text-center text-gray-400 py-12">
+                No results match the selected filter.
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -260,7 +437,10 @@ Example BibTeX:
 @article{key, title={...}, author={...}, year={2024}}
 
 Or APA/plain text:
-Smith, J. (2024). Title of article. Journal Name.`}
+Smith, J. (2024). Title of article. Journal Name.
+
+Or Chinese-style:
+[1]Author. Title[J]. Journal, 2024, 10(2): 123-456.`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />

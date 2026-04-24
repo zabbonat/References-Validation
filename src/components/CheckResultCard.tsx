@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { CheckResult } from '../services/SearchService';
-import { CheckCircle, XCircle, ExternalLink, Search } from 'lucide-react';
+import { CheckCircle, XCircle, ExternalLink, Search, Copy, Check, AlertTriangle } from 'lucide-react';
 
 interface Props {
     reference: string;
     result?: CheckResult;
     loading?: boolean;
+    duplicateOf?: number; // ref number of the duplicate
 }
 
 const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckResult['fallbackSource'] }> = ({ source, fallback }) => {
@@ -43,9 +44,34 @@ const getGoogleScholarUrl = (reference: string): string => {
     return `https://scholar.google.com/scholar?q=${encodeURIComponent(cleaned)}`;
 };
 
-export const CheckResultCard: React.FC<Props> = ({ reference, result, loading }) => {
+/**
+ * Small copy button component with feedback
+ */
+const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) => {
+    const [copied, setCopied] = useState(false);
+    
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch { /* ignore */ }
+    };
+
     return (
-        <div className="border rounded-lg bg-white shadow-sm mb-2 overflow-hidden">
+        <button
+            onClick={handleCopy}
+            className="flex items-center space-x-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs font-medium transition-colors"
+        >
+            {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+            <span>{copied ? 'Copied!' : label}</span>
+        </button>
+    );
+};
+
+export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf }) => {
+    return (
+        <div className={`border rounded-lg bg-white shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2' : ''}`}>
             {/* Header bar with status + source */}
             {!loading && result && (
                 <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
@@ -67,6 +93,21 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading })
                                 <XCircle size={16} />
                                 <span className="text-xs font-bold">Not Found</span>
                             </div>
+                        )}
+
+                        {/* Retraction badge */}
+                        {result.retracted && (
+                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                                <AlertTriangle size={12} />
+                                <span>RETRACTED</span>
+                            </span>
+                        )}
+
+                        {/* Duplicate badge */}
+                        {duplicateOf !== undefined && (
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
+                                ⚠ Duplicate of #{duplicateOf}
+                            </span>
                         )}
 
                         {result.url && (
@@ -102,7 +143,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading })
                     </div>
 
                     {/* RIGHT: Correct / found version */}
-                    <div className={`flex-1 p-4 ${result.exists ? 'bg-green-50/50' : 'bg-red-50/30'}`}>
+                    <div className={`flex-1 p-4 ${result.retracted ? 'bg-red-50/50' : result.exists ? 'bg-green-50/50' : 'bg-red-50/30'}`}>
                         <div className="text-xs font-semibold text-gray-400 uppercase mb-2">
                             {result.exists ? 'Found Reference' : 'Result'}
                         </div>
@@ -130,21 +171,21 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading })
                                     {result.year && <span>({result.year})</span>}
                                 </div>
 
-                                {/* BibTeX Copy */}
-                                {(result.correctedBibtex || result.bibtex) && (
-                                    <button
-                                        onClick={() => navigator.clipboard.writeText(result.correctedBibtex || result.bibtex || '')}
-                                        className="flex items-center space-x-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs font-medium transition-colors"
-                                    >
-                                        <span>Copy BibTeX{result.correctedBibtex ? ' (Corrected)' : ''}</span>
-                                    </button>
-                                )}
+                                {/* Action buttons */}
+                                <div className="flex flex-wrap gap-1.5">
+                                    {result.apa && (
+                                        <CopyButton text={result.correctedApa || result.apa} label={result.correctedApa ? 'Copy APA (Corrected)' : 'Copy APA'} />
+                                    )}
+                                    {(result.correctedBibtex || result.bibtex) && (
+                                        <CopyButton text={result.correctedBibtex || result.bibtex || ''} label={result.correctedBibtex ? 'Copy BibTeX (Corrected)' : 'Copy BibTeX'} />
+                                    )}
+                                </div>
 
                                 {/* Issues */}
                                 {result.issues && result.issues.length > 0 && (
                                     <div className="space-y-1 border-t pt-2 border-gray-200">
                                         {result.issues.map((issue, idx) => (
-                                            <div key={idx} className="text-xs text-red-500 font-semibold">• {issue}</div>
+                                            <div key={idx} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700' : 'text-red-500'}`}>• {issue}</div>
                                         ))}
                                     </div>
                                 )}
