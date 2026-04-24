@@ -645,7 +645,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                         .map((a: any) => `${a.family}${a.given ? ', ' + a.given : ''}`);
 
                     if (missingAuthors.length > 0) {
-                        issues.push(`"et al." used but paper has only ${realAuthorFamilies.length} authors (APA 7th: list all if < 15). Missing: ${missingAuthors.join('; ')}`);
+                        issues.push(`Incorrect citation style: "et al." used but paper has only ${realAuthorFamilies.length} authors (APA 7th: list all if < 15). Missing: ${missingAuthors.join('; ')}`);
                         authorSim -= 5;
                     }
                 }
