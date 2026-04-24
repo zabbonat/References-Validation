@@ -472,7 +472,19 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                 // ===== JOURNAL MATCHING (Batch Mode) — PREPRINT AWARE =====
                 if (expected.journal) {
-                    journalSim = calculateSimilarity(expected.journal, resultJournal);
+                    // Clean the expected journal: strip // prefix, publisher names, page ranges
+                    const publisherNames = /\b(springer|elsevier|wiley|routledge|sage|cambridge|oxford|harvard|princeton|edward\s+elgar|mcgraw.hill|pearson|academic\s+press|lexington\s+books?|university\s+press|palgrave|macmillan|taylor\s+&?\s*francis|ieee|acm)\b/gi;
+                    const cleanExpectedJournal = expected.journal
+                        .replace(/^\/\/\s*/, '')              // Remove // prefix (Chinese book chapter)
+                        .replace(/\.\s*$/, '')                 // Remove trailing dot
+                        .replace(publisherNames, '')           // Remove publisher names
+                        .replace(/publishing/gi, '')            // Remove "Publishing"
+                        .replace(/\b\d{1,5}\s*[-–]\s*\d{1,5}\b/g, '') // Remove page ranges
+                        .replace(/[:,]\s*$/, '')               // Remove trailing colon/comma
+                        .replace(/\s{2,}/g, ' ')               // Collapse spaces
+                        .trim();
+
+                    journalSim = calculateSimilarity(cleanExpectedJournal, resultJournal);
 
                     // Preprint-aware: if one is preprint and the other is a real journal, be lenient
                     if (journalSim < 50) {
