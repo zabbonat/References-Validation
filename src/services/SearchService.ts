@@ -509,6 +509,13 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                     journalSim = calculateSimilarity(cleanExpectedJournal, resultJournal);
 
+                    // Containment check: if the shorter name is inside the longer one, it's a match
+                    // e.g., "Open Innovation" inside "Open innovation: Researching a new paradigm"
+                    const nExpJ = normalize(cleanExpectedJournal);
+                    const nResJ = normalize(resultJournal);
+                    if (journalSim < 90 && (nExpJ.includes(nResJ) || nResJ.includes(nExpJ))) {
+                        journalSim = 95;
+                    }
                     // Preprint-aware: if one is preprint and the other is a real journal, be lenient
                     if (journalSim < 50) {
                         const expectedIsPreprint = isPreprint(expected.journal);
