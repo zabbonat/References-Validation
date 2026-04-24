@@ -626,6 +626,25 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     }
                 }
 
+                // ===== CHECK "et al." USAGE (APA 7th: list all authors if < 15) =====
+                const hasEtAl = /\bet\s+al\.?/i.test(validationQuery);
+                if (hasEtAl && realAuthorFamilies.length > 0 && realAuthorFamilies.length < 15) {
+                    // Find which real authors are missing from the user's input
+                    const missingAuthors = (item.author || [])
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        .filter((a: any) => {
+                            const family = normalize(a.family || '');
+                            return family.length > 2 && !nValidation.includes(family);
+                        })
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        .map((a: any) => `${a.family}${a.given ? ', ' + a.given : ''}`);
+
+                    if (missingAuthors.length > 0) {
+                        issues.push(`"et al." used but paper has only ${realAuthorFamilies.length} authors (APA 7th: list all if < 15). Missing: ${missingAuthors.join('; ')}`);
+                        authorSim -= 5;
+                    }
+                }
+
                 // ===== 3. JOURNAL from CrossRef — PREPRINT AWARE =====
                 if (resultJournal && resultJournal.length > 3) {
                     const journalWords = normalize(resultJournal).split(/\s+/).filter(w => w.length >= 4);
