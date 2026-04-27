@@ -134,7 +134,7 @@ const extractLikelyTitle = (rawRef: string): string | null => {
 
 // ===== MINIMUM TITLE SIMILARITY TO ACCEPT A RESULT =====
 // Below this threshold, the result is treated as "Not Found" rather than showing a different paper
-const MIN_TITLE_SIMILARITY = 90;
+const MIN_TITLE_SIMILARITY = 55;
 
 // Levenshtein distance for string similarity
 const levenshteinDistance = (a: string, b: string): number => {
@@ -354,10 +354,18 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     titleScore = calculateSimilarity(expected.title, iTitle);
                 } else {
                     const nTitle = normalize(iTitle);
-                    if (nQuery.includes(nTitle)) {
+                    if (nQuery.includes(nTitle) || nTitle.includes(nQuery)) {
                         titleScore = 100;
                     } else {
-                        titleScore = calculateSimilarity(query, iTitle);
+                        const titleWords = nTitle.split(/\s+/).filter(w => w.length >= 3);
+                        const matchingWords = titleWords.filter(w => nQuery.includes(w));
+                        const wordOverlap = titleWords.length > 0 ? matchingWords.length / titleWords.length : 0;
+                        
+                        if (wordOverlap >= 0.8) {
+                            titleScore = Math.round(85 + wordOverlap * 15);
+                        } else {
+                            titleScore = calculateSimilarity(query, iTitle);
+                        }
                     }
                 }
 
@@ -406,10 +414,19 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 titleSim = calculateSimilarity(expected.title, resultTitle);
             } else {
                 const nTitle = normalize(resultTitle);
-                if (nQuery.includes(nTitle)) {
+                if (nQuery.includes(nTitle) || nTitle.includes(nQuery)) {
                     titleSim = 100;
                 } else {
-                    titleSim = calculateSimilarity(query, resultTitle);
+                    // Try word-overlap: if most title words appear in query, it's likely correct
+                    const titleWords = nTitle.split(/\s+/).filter(w => w.length >= 3);
+                    const matchingWords = titleWords.filter(w => nQuery.includes(w));
+                    const wordOverlap = titleWords.length > 0 ? matchingWords.length / titleWords.length : 0;
+                    
+                    if (wordOverlap >= 0.8) {
+                        titleSim = Math.round(85 + wordOverlap * 15); // 85-100 range
+                    } else {
+                        titleSim = calculateSimilarity(query, resultTitle);
+                    }
                 }
             }
 
