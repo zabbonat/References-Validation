@@ -4,7 +4,8 @@ import { parsePlainTextRefs, detectDuplicates } from './services/PlainTextParser
 import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
-import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter } from 'lucide-react';
+import { ReportView } from './components/ReportView';
+import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText } from 'lucide-react';
 
 const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
 
@@ -90,6 +91,7 @@ function App() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -249,6 +251,20 @@ function App() {
     });
   }, [batchResults, filter]);
 
+  // Report View — full report of all results without filtering
+  if (showBatchView && showReport && allBatchDone) {
+    return (
+      <ReportView
+        items={batchResults.map(item => ({
+          ref: item.ref,
+          result: item.result,
+          duplicateOf: item.duplicateOf
+        }))}
+        onBack={() => setShowReport(false)}
+      />
+    );
+  }
+
   // Check if we should show batch view (dedicated page)
   if (showBatchView) {
     const progressPct = batchProgress.total > 0 ? Math.round((batchProgress.current / batchProgress.total) * 100) : 0;
@@ -280,6 +296,15 @@ function App() {
               )}
             </div>
             <div className="flex items-center space-x-2">
+              {allBatchDone && (
+                <button
+                  onClick={() => setShowReport(true)}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                >
+                  <FileText size={14} />
+                  <span>Report</span>
+                </button>
+              )}
               {allBatchDone && (
                 <>
                   <button
