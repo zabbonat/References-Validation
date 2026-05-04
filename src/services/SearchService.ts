@@ -234,6 +234,7 @@ interface ExpectedMetadata {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const formatAPA = (item: any): string => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const authors = (item.author || []).map((a: any) => `${a.family}, ${a.given ? a.given[0] + '.' : ''}`).join(', ');
     const year = item.published?.['date-parts']?.[0]?.[0] || 'n.d.';
     const title = item.title?.[0] || 'Untitled';
@@ -453,14 +454,14 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             const nResultTitle = normalize(resultTitle);
 
             // Fetch Real Authors for comparison (Cleaned)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const realAuthorFamilies: string[] = (item.author || [])
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .map((a: any) => normalize(a.family || ""))
                 .filter((name: string) => name.length > 2);
 
             // Fetch Real Author Given Names for first-letter matching
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const realAuthorGivens: string[] = (item.author || [])
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .map((a: any) => (a.given || "").trim())
@@ -606,7 +607,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                 // ===== DETECT FAKE AUTHORS (Quick Check) =====
                 // Pre-clean the validation query: remove reference markers, DOI, pages, volume/issue, years
-                let cleanedValidation = validationQuery
+                const cleanedValidation = validationQuery
                     .replace(/\[\s*[JMCDRSZN]\s*\]/g, '')          // Chinese-style ref markers: [J], [M], [C], etc.
                     .replace(/\/\/[^.]+/g, '')                      // Book series after // (e.g. //Handbook of...)
                     .replace(/DOI\s*[:：]\s*[^\s,]+/gi, '')          // DOI:10.xxx/yyy
@@ -946,6 +947,7 @@ const resolveByDOI = async (doi: string, expected?: ExpectedMetadata, query?: st
         const resultJournal = item['container-title']?.[0] || '';
 
         // Check for retraction
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const isRetracted = Boolean(item['update-to']?.some?.((u: any) => u.type === 'retraction') ||
             item['relation']?.['is-retracted-by']?.length > 0);
 

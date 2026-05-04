@@ -93,6 +93,20 @@ function App() {
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showReport, setShowReport] = useState(false);
 
+  async function handleQuickCheck(text: string) {
+    if (!text) return;
+    const cleanedText = cleanLatexInput(text);
+    if (!cleanedText) return;
+
+    setShowBatchView(false);
+    setBatchResults([]);
+    setLoadingQuick(true);
+    setQuickResult(null);
+    const result = await checkWithFallback(cleanedText);
+    setQuickResult(result);
+    setLoadingQuick(false);
+  };
+
   useEffect(() => {
     if (ipcRenderer) {
       ipcRenderer.on('trigger-check', () => {
@@ -109,23 +123,10 @@ function App() {
         ipcRenderer.removeAllListeners('trigger-check');
       }
     }
+   
   }, []);
 
-  const handleQuickCheck = async (text: string) => {
-    if (!text) return;
-    const cleanedText = cleanLatexInput(text);
-    if (!cleanedText) return;
-
-    setShowBatchView(false);
-    setBatchResults([]);
-    setLoadingQuick(true);
-    setQuickResult(null);
-    const result = await checkWithFallback(cleanedText);
-    setQuickResult(result);
-    setLoadingQuick(false);
-  };
-
-  const handleBatchCheck = async (text?: string) => {
+  async function handleBatchCheck(text?: string) {
     const source = text || input;
     if (!source) return;
     const cleanedInput = cleanLatexInput(source);

@@ -48,7 +48,7 @@ const extractYear = (ref: string): string | undefined => {
  * Extract reference number like [1], [23], (1), etc.
  */
 const extractRefNumber = (ref: string): number | undefined => {
-    const match = ref.match(/^\s*[\[(\s]*(\d{1,4})[\])\s]*[.\s]/);
+    const match = ref.match(/^\s*[[(\s]*(\d{1,4})[\])\s]*[.\s]/);
     if (match) return parseInt(match[1]);
     return undefined;
 };
@@ -59,7 +59,7 @@ const extractRefNumber = (ref: string): number | undefined => {
  */
 const parseChineseStyle = (ref: string): ParsedPlainTextRef | null => {
     // Detect Chinese-style markers
-    if (!/\[\s*[JMCDRSZN]\s*\]/.test(ref)) return null;
+    if (!/[\s*[JMCDRSZN]\s*\]/.test(ref)) return null;
 
     const result: ParsedPlainTextRef = { raw: ref };
     result.refNumber = extractRefNumber(ref);
@@ -67,10 +67,10 @@ const parseChineseStyle = (ref: string): ParsedPlainTextRef | null => {
     result.year = extractYear(ref);
 
     // Remove ref number prefix
-    let cleaned = ref.replace(/^\s*[\[(\s]*\d{1,4}[\])\s]*[.\s]?/, '').trim();
+    const cleaned = ref.replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '').trim();
 
     // Split on the type marker [J], [M], etc.
-    const markerMatch = cleaned.match(/^(.*?)\[\s*[JMCDRSZN]\s*\]/);
+    const markerMatch = cleaned.match(/^(.*?)[\s*[JMCDRSZN]\s*\]/);
     if (markerMatch) {
         const beforeMarker = markerMatch[1].trim();
         const afterMarker = cleaned.substring(markerMatch[0].length).trim();
@@ -99,7 +99,7 @@ const parseChineseStyle = (ref: string): ParsedPlainTextRef | null => {
     // Clean up title — remove trailing dots and markers
     if (result.title) {
         result.title = result.title
-            .replace(/\[\s*[JMCDRSZN]\s*\]/g, '')
+            .replace(/[\s*[JMCDRSZN]\s*\]/g, '')
             .replace(/\.$/, '')
             .trim();
     }
@@ -118,7 +118,7 @@ const parseAPAStyle = (ref: string): ParsedPlainTextRef | null => {
     result.year = extractYear(ref);
 
     // Remove ref number prefix
-    let cleaned = ref.replace(/^\s*[\[(\s]*\d{1,4}[\])\s]*[.\s]?/, '').trim();
+    const cleaned = ref.replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '').trim();
 
     // Try APA pattern: Authors (Year). Title. Journal...
     const apaMatch = cleaned.match(
@@ -154,7 +154,7 @@ const parseVancouverStyle = (ref: string): ParsedPlainTextRef | null => {
     result.year = extractYear(ref);
 
     // Remove ref number prefix
-    let cleaned = ref.replace(/^\s*\d{1,4}\.\s*/, '').trim();
+    const cleaned = ref.replace(/^\s*\d{1,4}\.\s*/, '').trim();
 
     // Split on periods to find segments
     const segments = cleaned.split(/\.\s+/).filter(s => s.length > 3);
@@ -184,8 +184,8 @@ const parseGeneric = (ref: string): ParsedPlainTextRef => {
     result.year = extractYear(ref);
 
     // Remove ref number prefix, DOI, URLs
-    let cleaned = ref
-        .replace(/^\s*[\[(\s]*\d{1,4}[\])\s]*[.\s]?/, '')
+    const cleaned = ref
+        .replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '')
         .replace(/(?:DOI\s*[：:]\s*)10\.\d{4,9}\/[^\s,;]+/gi, '')
         .replace(/https?:\/\/[^\s,]+/gi, '')
         .trim();
