@@ -205,7 +205,7 @@ const calculateSimilarity = (str1: string, str2: string): number => {
     return Math.max(levenSim, wordSim);
 };
 
-export const computeTitleSim = (expectedTitle: string, resultTitle: string, _expected?: { title?: string, authors?: string, journal?: string, year?: string }, _originalQuery?: string): number => {
+export const computeTitleSim = (expectedTitle: string, resultTitle: string): number => {
     if (!expectedTitle || !resultTitle) return 0;
     
     const cleanExpected = normalize(expectedTitle);
@@ -973,7 +973,7 @@ const resolveByDOI = async (doi: string, expected?: ExpectedMetadata, query?: st
         }
 
         // Validate if the DOI actually matches the user's query text
-        const titleSim = computeTitleSim(expected?.title || query || '', resultTitle, expected, query);
+        const titleSim = computeTitleSim(expected?.title || query || '', resultTitle);
         let matchConfidence = 100;
         
         if (titleSim < 70) {
@@ -1098,7 +1098,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
 
     // --- Semantic Scholar candidate ---
     if (ssResult) {
-        const ssTitleSim = computeTitleSim(title, ssResult.title, expected, query);
+        const ssTitleSim = computeTitleSim(title, ssResult.title);
         const ssAuthorSim = computeAuthorSim(expected?.authors || query, ssResult.authors);
 
         if (ssTitleSim >= MIN_TITLE_SIMILARITY) {
@@ -1141,7 +1141,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
 
     // --- OpenAlex candidate ---
     if (oaResult) {
-        const oaTitleSim = computeTitleSim(title, oaResult.title, expected, query);
+        const oaTitleSim = computeTitleSim(title, oaResult.title);
         const oaAuthorSim = computeAuthorSim(expected?.authors || query, oaResult.authors);
 
         if (oaTitleSim >= MIN_TITLE_SIMILARITY) {
