@@ -862,6 +862,12 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             // (e.g., a book review instead of the book, a different paper with similar title)
             // However, if title and authors match very well, it's the right paper with wrong metadata!
             const isDefiniteMatch = titleSim > 85 && authorSim > 80;
+
+            if (isDefiniteMatch && confidence <= 80) {
+                // It's the same paper, but with metadata differences (e.g., preprint vs published version).
+                // Ensure it falls into the "Partial Match" category (>50) rather than "Mismatch" (<50)
+                confidence = Math.max(65, confidence);
+            }
             
             if (!isDefiniteMatch && (confidence < 40 || issues.length >= 3)) {
                 return {
