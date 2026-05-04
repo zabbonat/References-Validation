@@ -3,7 +3,7 @@ import type { CheckResult } from '../services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, downloadBibFile, downloadFile, copyToClipboard } from '../services/BibExportService';
 import { CheckCircle, XCircle, AlertTriangle, ExternalLink, Search, Copy, Check, FileText, ArrowLeft, Download, Printer, Filter } from 'lucide-react';
 
-type FilterType = 'all' | 'verified' | 'partial' | 'notfound' | 'issues';
+type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'notfound' | 'issues';
 
 interface ReportItem {
     ref: string;
