@@ -14,7 +14,7 @@ const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckRes
         'CrossRef': 'bg-blue-100 text-blue-700',
         'SemanticScholar': 'bg-purple-100 text-purple-700',
         'OpenAlex': 'bg-orange-100 text-orange-700',
-        'NotFound': 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300/90'
+        'NotFound': 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300/90'
     };
 
     return (
@@ -74,7 +74,7 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
 
 export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf }) => {
     return (
-        <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2' : ''}`}>
+        <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : ''}`}>
             {/* Header bar with status + source */}
             {!loading && result && (
                 <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-[#0B1120] border-b dark:border-slate-700/50">
@@ -91,7 +91,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                     <span className="text-xs font-bold">Partial Match ({result.matchConfidence}%)</span>
                                 </div>
                             ) : (
-                                <div className="flex items-center text-orange-600 space-x-1">
+                                <div className="flex items-center text-orange-600 dark:text-amber-400 space-x-1">
                                     <AlertTriangle size={16} />
                                     <span className="text-xs font-bold">Mismatch / Error</span>
                                 </div>
@@ -105,7 +105,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
 
                         {/* Retraction badge */}
                         {result.retracted && (
-                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-red-100 dark:bg-rose-500/15 text-red-700 text-xs font-bold rounded-full">
+                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-red-100 dark:bg-rose-500/15 text-red-700 dark:text-rose-400 text-xs font-bold rounded-full">
                                 <AlertTriangle size={12} />
                                 <span>RETRACTED</span>
                             </span>
@@ -193,7 +193,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                 {result.issues && result.issues.length > 0 && (
                                     <div className="space-y-1 border-t dark:border-slate-700/50 pt-2 border-slate-200">
                                         {result.issues.map((issue, idx) => (
-                                            <div key={idx} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700' : 'text-red-500'}`}>• {issue}</div>
+                                            <div key={idx} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700 dark:text-rose-400' : 'text-red-500 dark:text-rose-400'}`}>• {issue}</div>
                                         ))}
                                     </div>
                                 )}
@@ -204,7 +204,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                         href={getGoogleScholarUrl(reference)}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors mt-1"
+                                        className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 text-xs font-medium rounded-lg transition-colors mt-1"
                                     >
                                         <Search size={14} />
                                         <span>{result.matchConfidence <= 50 ? 'Search on Google Scholar (without DOI)' : 'Search on Google Scholar'}</span>
@@ -230,7 +230,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                     href={getGoogleScholarUrl(reference)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                                    className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 text-xs font-medium rounded-lg transition-colors"
                                 >
                                     <Search size={14} />
                                     <span>Search on Google Scholar</span>

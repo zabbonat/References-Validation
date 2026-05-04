@@ -62,7 +62,7 @@ const CopyBtn: React.FC<{ text: string; label: string; className?: string }> = (
 const StatusBadge: React.FC<{ result: CheckResult }> = ({ result }) => {
     if (result.retracted) {
         return (
-            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 rounded-full text-xs font-bold">
+            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 dark:text-rose-400 rounded-full text-xs font-bold">
                 <AlertTriangle size={12} />
                 <span>RETRACTED</span>
             </span>
@@ -70,7 +70,7 @@ const StatusBadge: React.FC<{ result: CheckResult }> = ({ result }) => {
     }
     if (!result.exists) {
         return (
-            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 rounded-full text-xs font-bold">
+            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 dark:text-rose-400 rounded-full text-xs font-bold">
                 <XCircle size={12} />
                 <span>Not Found</span>
             </span>
@@ -187,7 +187,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 const allResults = items.map(i => i.result).filter((r): r is CheckResult => !!r);
                                 downloadFile(generateAPAFileContent(allResults), 'report_references_APA.txt');
                             }}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                         >
                             <Download size={14} />
                             <span>Download APA</span>
@@ -202,7 +202,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                         </button>
                         <button
                             onClick={handleEmailReport}
-                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                             title="Share via Email"
                         >
                             <Mail size={14} />
@@ -251,18 +251,18 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 <div className="text-xs text-yellow-600 dark:text-amber-400 font-medium">Partial</div>
                             </div>
                             <div className="bg-red-50 dark:bg-rose-500/10 rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold text-red-700">{stats.notFound}</div>
+                                <div className="text-2xl font-bold text-red-700 dark:text-rose-400">{stats.notFound}</div>
                                 <div className="text-xs text-red-600 dark:text-rose-400 font-medium">Not Found</div>
                             </div>
                             <div className="bg-orange-50 rounded-lg p-3 text-center">
                                 <div className="text-2xl font-bold text-orange-700">{stats.withIssues}</div>
-                                <div className="text-xs text-orange-600 font-medium">With Issues</div>
+                                <div className="text-xs text-orange-600 dark:text-amber-400 font-medium">With Issues</div>
                             </div>
                         </div>
                         {stats.retracted > 0 && (
                             <div className="mt-3 px-3 py-2 bg-red-100 dark:bg-rose-500/15 border border-red-300 rounded-lg flex items-center space-x-2">
-                                <AlertTriangle size={16} className="text-red-700" />
-                                <span className="text-sm font-bold text-red-700">⚠ {stats.retracted} retracted paper(s) detected!</span>
+                                <AlertTriangle size={16} className="text-red-700 dark:text-rose-400" />
+                                <span className="text-sm font-bold text-red-700 dark:text-rose-400">⚠ {stats.retracted} retracted paper(s) detected!</span>
                             </div>
                         )}
                     </div>
@@ -277,7 +277,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                                     filter === f 
                                     ? 'bg-blue-600 text-white' 
-                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300/90 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                    : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300/90 hover:bg-slate-200 dark:hover:bg-slate-600'
                                 }`}
                             >
                                 {f === 'all' ? `All (${items.length})` :
@@ -304,7 +304,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 <div
                                     key={idx}
                                     className={`bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border overflow-hidden print:break-inside-avoid ${
-                                        result.retracted ? 'border-red-400 border-2' : ''
+                                        result.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : ''
                                     }`}
                                 >
                                     {/* Reference header */}
@@ -314,7 +314,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                         'bg-red-50 dark:bg-rose-500/10 border-b dark:border-slate-700/50 border-red-100 dark:border-rose-500/10'
                                     }`}>
                                         <div className="flex items-center space-x-3">
-                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">#{idx + 1}</span>
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-full">#{idx + 1}</span>
                                             <StatusBadge result={result} />
                                             {item.duplicateOf !== undefined && (
                                                 <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
@@ -324,7 +324,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             {result.source !== 'NotFound' && (
-                                                <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300/90 rounded-full font-medium">
+                                                <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300/90 rounded-full font-medium">
                                                     {result.source}
                                                     {result.fallbackSource ? ` + ${result.fallbackSource}` : ''}
                                                 </span>
@@ -366,9 +366,9 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                 )}
                                                 {/* Metadata row */}
                                                 <div className="flex flex-wrap gap-2 mt-2 text-xs text-slate-500 dark:text-slate-400">
-                                                    {result.journal && <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{result.journal}</span>}
-                                                    {result.year && <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{result.year}</span>}
-                                                    {result.doi && <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">DOI: {result.doi}</span>}
+                                                    {result.journal && <span className="bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded">{result.journal}</span>}
+                                                    {result.year && <span className="bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded">{result.year}</span>}
+                                                    {result.doi && <span className="bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded">DOI: {result.doi}</span>}
                                                 </div>
                                             </div>
                                         )}
@@ -377,7 +377,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                         {result.issues && result.issues.length > 0 && (
                                             <div className="space-y-1 border-t dark:border-slate-700/50 pt-2 border-slate-200">
                                                 {result.issues.map((issue, i) => (
-                                                    <div key={i} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700' : 'text-orange-600'}`}>
+                                                    <div key={i} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700 dark:text-rose-400' : 'text-orange-600 dark:text-amber-400'}`}>
                                                         • {issue}
                                                     </div>
                                                 ))}
@@ -391,7 +391,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                 <CopyBtn
                                                     text={result.correctedBibtex || result.bibtex || ''}
                                                     label={result.correctedBibtex ? 'Copy BibTeX (Corrected)' : 'Copy BibTeX'}
-                                                    className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300/90"
+                                                    className="bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300/90"
                                                 />
                                             )}
                                             {/* Copy APA */}
@@ -399,7 +399,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                 <CopyBtn
                                                     text={result.correctedApa || result.apa}
                                                     label={result.correctedApa ? 'Copy APA (Corrected)' : 'Copy APA'}
-                                                    className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300/90"
+                                                    className="bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300/90"
                                                 />
                                             )}
                                             {/* Google Scholar — for not found or partial matches */}
@@ -408,7 +408,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                     href={getGoogleScholarUrl(item.ref)}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors"
+                                                    className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 text-xs font-medium rounded-md transition-colors"
                                                 >
                                                     <Search size={12} />
                                                     <span>{result.matchConfidence <= 50 ? 'Search on Google Scholar (without DOI)' : 'Search on Google Scholar'}</span>

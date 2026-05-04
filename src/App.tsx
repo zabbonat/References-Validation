@@ -355,7 +355,7 @@ function App() {
               {allBatchDone && (
                 <button
                   onClick={() => setShowReport(true)}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                 >
                   <FileText size={14} />
                   <span>Report</span>
@@ -380,7 +380,7 @@ function App() {
                       const apaContent = generateAPAFileContent(results);
                       downloadFile(apaContent, 'corrected_references_APA.txt');
                     }}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                   >
                     <Download size={14} />
                     <span>Download APA</span>
@@ -400,7 +400,7 @@ function App() {
               <div className="border-l border-slate-300 h-6 mx-2"></div>
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
                 title="Toggle Dark Mode"
               >
                 {darkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -447,7 +447,7 @@ function App() {
                 </span>
               )}
               {stats.notFound > 0 && (
-                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 rounded-full font-semibold">
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 dark:text-rose-400 rounded-full font-semibold">
                   <span>✗ {stats.notFound} Not Found</span>
                 </span>
               )}
@@ -476,7 +476,7 @@ function App() {
                   className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                     filter === f 
                       ? 'bg-blue-600 text-white' 
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300/90 hover:bg-slate-200 dark:hover:bg-slate-600 dark:bg-slate-600'
+                      : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300/90 hover:bg-slate-200 dark:hover:bg-slate-600 dark:bg-slate-600'
                   }`}
                 >
                   {f === 'all' ? `All (${batchResults.length})` :
@@ -524,7 +524,7 @@ function App() {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
             title="Toggle Dark Mode"
           >
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -566,7 +566,7 @@ Or Numbered/Plain text:
               <button
                 onClick={() => handleQuickCheck(input)}
                 disabled={loadingQuick || !input}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
               >
                 <Search size={18} />
                 <span>{loadingQuick ? 'Verifying...' : 'Quick Check'}</span>
@@ -574,7 +574,7 @@ Or Numbered/Plain text:
               <button
                 onClick={() => handleBatchCheck()}
                 disabled={!input || batchResults.some(r => r.loading)}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-500/10 dark:text-purple-400 dark:hover:bg-purple-500/20 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
               >
                 <ClipboardList size={18} />
                 <span>Batch Check</span>
@@ -635,7 +635,7 @@ Or Numbered/Plain text:
           href="https://scholar.google.com/citations?view_op=view_citation&hl=en&user=no8pRaUAAAAJ&citation_for_view=no8pRaUAAAAJ:kNdYIx-mwKoC"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-full transition-colors shadow-sm"
+          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 text-xs font-medium rounded-full transition-colors shadow-sm"
         >
           <Quote size={12} />
           <span>Cite</span>
