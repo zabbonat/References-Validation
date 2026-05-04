@@ -326,13 +326,13 @@ function App() {
     const progressPct = batchProgress.total > 0 ? Math.round((batchProgress.current / batchProgress.total) * 100) : 0;
 
     return (
-      <div className="bg-slate-50 dark:bg-slate-950 min-h-screen flex flex-col font-sans">
-        <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
+      <div className="bg-slate-50 dark:bg-[#0B1120] min-h-screen flex flex-col font-sans">
+        <header className="bg-white dark:bg-slate-800/80 border-b dark:border-slate-700/50 px-4 py-3 shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
           {/* Top row: title + buttons */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-3">
               <ClipboardList className="text-blue-600" size={20} />
-              <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300">Batch Check Results</h1>
+              <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300/90">Batch Check Results</h1>
               {allBatchDone && (
                 <button
                   onClick={async () => {
@@ -393,7 +393,7 @@ function App() {
                   setBatchResults([]);
                   setBatchProgress({ current: 0, total: 0 });
                 }}
-                className="px-4 py-2 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300/90 font-medium rounded-lg transition-colors"
               >
                 ← Back
               </button>
@@ -407,7 +407,7 @@ function App() {
               </button>
               <button
                 onClick={clearSession}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:text-rose-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:border-rose-800/50"
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:text-rose-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:border-rose-500/20"
               >
                 Clear Session
               </button>
@@ -447,7 +447,7 @@ function App() {
                 </span>
               )}
               {stats.notFound > 0 && (
-                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-900/30 text-red-700 rounded-full font-semibold">
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 rounded-full font-semibold">
                   <span>✗ {stats.notFound} Not Found</span>
                 </span>
               )}
@@ -476,7 +476,7 @@ function App() {
                   className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                     filter === f 
                       ? 'bg-blue-600 text-white' 
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 dark:bg-slate-600'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300/90 hover:bg-slate-200 dark:hover:bg-slate-600 dark:bg-slate-600'
                   }`}
                 >
                   {f === 'all' ? `All (${batchResults.length})` :
@@ -515,11 +515,11 @@ function App() {
 
   // Main unified view
   return (
-    <div className="bg-slate-50 dark:bg-slate-950 min-h-screen flex flex-col font-sans">
-      <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
+    <div className="bg-slate-50 dark:bg-[#0B1120] min-h-screen flex flex-col font-sans">
+      <header className="bg-white dark:bg-slate-800/80 border-b dark:border-slate-700/50 px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
         <div className="flex items-center space-x-2">
           <Search className="text-blue-600" size={20} />
-          <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300">CheckIfExist</h1>
+          <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300/90">CheckIfExist</h1>
         </div>
         <div className="flex items-center space-x-2">
           <button
@@ -531,7 +531,7 @@ function App() {
           </button>
           <button
             onClick={clearSession}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:text-rose-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:border-rose-800/50"
+            className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:text-rose-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:border-rose-500/20"
           >
             Clear Session
           </button>
@@ -541,7 +541,7 @@ function App() {
       <main className="flex-1 p-4 overflow-auto">
         <div className="max-w-2xl mx-auto space-y-4">
           {/* Unified Input Card */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border">
+          <div className="bg-white dark:bg-slate-800/80 p-5 rounded-xl shadow-sm border">
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
               Paste Reference(s)
             </label>
@@ -647,7 +647,7 @@ Or Numbered/Plain text:
           href="https://github.com/zabbonat/References-Validation/blob/main/LICENSE"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-slate-600 dark:text-slate-300 transition-colors"
+          className="hover:text-slate-600 dark:text-slate-300/90 transition-colors"
         >
           MIT License © 2026 Diletta Abbonato
         </a>
