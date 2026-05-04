@@ -384,7 +384,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                     className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors"
                                                 >
                                                     <Search size={12} />
-                                                    <span>Search on Google Scholar (without DOI)</span>
+                                                    <span>{result.matchConfidence <= 50 ? 'Search on Google Scholar (without DOI)' : 'Search on Google Scholar'}</span>
                                                 </a>
                                             )}
                                         </div>
