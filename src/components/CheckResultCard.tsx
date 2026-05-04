@@ -37,10 +37,13 @@ const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckRes
 const getGoogleScholarUrl = (reference: string): string => {
     // Clean up the reference for a better search query
     const cleaned = reference
-        .replace(/[@{}]/g, '')           // Remove BibTeX artifacts
-        .replace(/\s{2,}/g, ' ')         // Collapse multiple spaces
+        .replace(/https?:\/\/[^\s]+/ig, '')              // Remove URLs
+        .replace(/\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/ig, '') // Remove bare DOIs
+        .replace(/doi:\s*/ig, '')                        // Remove dangling "doi:" text
+        .replace(/[@{}]/g, '')                           // Remove BibTeX artifacts
+        .replace(/\s{2,}/g, ' ')                         // Collapse multiple spaces
         .trim()
-        .slice(0, 200);                  // Google Scholar has query length limits
+        .slice(0, 200);                                  // Google Scholar has query length limits
     return `https://scholar.google.com/scholar?q=${encodeURIComponent(cleaned)}`;
 };
 
