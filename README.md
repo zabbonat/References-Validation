@@ -5,11 +5,16 @@
 
 ## 🚀 Features
 - **Quick Verification**: Verification of single references via text selection or clipboard.
-- **Batch Mode**: Paste a list of BibTeX entries to verify them all at once.
-- **Advanced Logic**:
-  - Detects partial matches (e.g., correct title but wrong author).
+- **Batch Processing**: Paste a list of BibTeX entries or plain text/numbered citations to verify them all at once. Includes a progress bar and summary statistics.
+- **Advanced Validation Logic**:
+  - Detects partial matches (e.g., correct title but wrong author or year).
+  - Validates DOIs: explicitly flags **Mismatch / Error** if the provided DOI points to an unrelated paper.
   - Handles "First Name Last Name" vs "Last Name First Name" variations.
   - Penalizes scores for missing authors in the query.
+- **Smart Filtering & Reporting**:
+  - Dynamic filter bar (All, Verified, Partial, Mismatch, Not Found, Issues) to quickly isolate problematic references in batch reports.
+- **Manual Verification Fallbacks**:
+  - Automatically strips malformed DOIs/URLs before searching on Google Scholar to ensure robust manual verification.
 - **Output Formats**:
   - **APA Style**: Get the correct APA citation instantly.
   - **BibTeX**: Generates a valid BibTeX entry for the *found* paper.
