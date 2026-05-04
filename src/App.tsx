@@ -326,13 +326,13 @@ function App() {
     const progressPct = batchProgress.total > 0 ? Math.round((batchProgress.current / batchProgress.total) * 100) : 0;
 
     return (
-      <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col font-sans">
-        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 px-4 py-3 shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
+      <div className="bg-slate-50 dark:bg-slate-950 min-h-screen flex flex-col font-sans">
+        <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
           {/* Top row: title + buttons */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-3">
               <ClipboardList className="text-blue-600" size={20} />
-              <h1 className="font-bold text-lg text-gray-800 dark:text-gray-200">Batch Check Results</h1>
+              <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300">Batch Check Results</h1>
               {allBatchDone && (
                 <button
                   onClick={async () => {
@@ -344,7 +344,7 @@ function App() {
                       setTimeout(() => setCopySuccess(false), 2000);
                     }
                   }}
-                  className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                  className="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                 >
                   {copySuccess ? <Check size={14} /> : <Copy size={14} />}
                   <span>{copySuccess ? 'Copied!' : 'Copy .bib'}</span>
@@ -393,21 +393,21 @@ function App() {
                   setBatchResults([]);
                   setBatchProgress({ current: 0, total: 0 });
                 }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors"
               >
                 ← Back
               </button>
-              <div className="border dark:border-gray-700-l border dark:border-gray-700-gray-300 h-6 mx-2"></div>
+              <div className="border-l border-slate-300 h-6 mx-2"></div>
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-800 dark:text-gray-400 rounded-lg transition-colors"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
                 title="Toggle Dark Mode"
               >
                 {darkMode ? <Sun size={18} /> : <Moon size={18} />}
               </button>
               <button
                 onClick={clearSession}
-                className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border dark:border-gray-700 border dark:border-gray-700-transparent hover:border dark:border-gray-700-red-200"
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:text-rose-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:border-rose-800/50"
               >
                 Clear Session
               </button>
@@ -417,11 +417,11 @@ function App() {
           {/* Progress bar */}
           {!allBatchDone && batchProgress.total > 0 && (
             <div className="mb-2">
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                 <span>Checking references...</span>
                 <span>{batchProgress.current} / {batchProgress.total} ({progressPct}%)</span>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+              <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2">
                 <div 
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                   style={{ width: `${progressPct}%` }}
@@ -447,7 +447,7 @@ function App() {
                 </span>
               )}
               {stats.notFound > 0 && (
-                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full font-semibold">
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-900/30 text-red-700 rounded-full font-semibold">
                   <span>✗ {stats.notFound} Not Found</span>
                 </span>
               )}
@@ -457,18 +457,18 @@ function App() {
                 </span>
               )}
               {stats.retracted > 0 && (
-                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-200 text-red-800 rounded-full font-bold">
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-200 text-red-800 dark:text-rose-400 rounded-full font-bold">
                   <span>⚠ {stats.retracted} Retracted</span>
                 </span>
               )}
-              <span className="text-gray-400">Total: {stats.total}</span>
+              <span className="text-slate-400">Total: {stats.total}</span>
             </div>
           )}
 
           {/* Filter bar (shown when done) */}
           {allBatchDone && (
             <div className="flex items-center space-x-2">
-              <Filter size={14} className="text-gray-400" />
+              <Filter size={14} className="text-slate-400" />
               {(['all', 'verified', 'partial', 'mismatch', 'notfound', 'issues'] as FilterType[]).map(f => (
                 <button
                   key={f}
@@ -476,7 +476,7 @@ function App() {
                   className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                     filter === f 
                       ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 dark:bg-gray-600'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 dark:bg-slate-600'
                   }`}
                 >
                   {f === 'all' ? `All (${batchResults.length})` :
@@ -503,7 +503,7 @@ function App() {
               />
             ))}
             {filteredBatchResults.length === 0 && allBatchDone && (
-              <div className="text-center text-gray-400 py-12">
+              <div className="text-center text-slate-400 py-12">
                 No results match the selected filter.
               </div>
             )}
@@ -515,23 +515,23 @@ function App() {
 
   // Main unified view
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col font-sans">
-      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
+    <div className="bg-slate-50 dark:bg-slate-950 min-h-screen flex flex-col font-sans">
+      <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
         <div className="flex items-center space-x-2">
           <Search className="text-blue-600" size={20} />
-          <h1 className="font-bold text-lg text-gray-800 dark:text-gray-200">CheckIfExist</h1>
+          <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300">CheckIfExist</h1>
         </div>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-800 dark:text-gray-400 rounded-lg transition-colors"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
             title="Toggle Dark Mode"
           >
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <button
             onClick={clearSession}
-            className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border dark:border-gray-700 border dark:border-gray-700-transparent hover:border dark:border-gray-700-red-200"
+            className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:text-rose-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:border-rose-800/50"
           >
             Clear Session
           </button>
@@ -541,12 +541,12 @@ function App() {
       <main className="flex-1 p-4 overflow-auto">
         <div className="max-w-2xl mx-auto space-y-4">
           {/* Unified Input Card */}
-          <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border">
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
               Paste Reference(s)
             </label>
             <textarea
-              className="w-full h-64 p-3 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none text-sm font-mono"
+              className="w-full h-64 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none text-sm font-mono"
               placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
 
 Example BibTeX:
@@ -610,7 +610,7 @@ Or Numbered/Plain text:
 
           {/* Disclaimer */}
           <div className="text-center px-4">
-            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+            <p className="text-xs text-slate-500 dark:text-slate-400 italic">
               The tool may occasionally misclassify authentic references, so always double-check flagged items manually.
             </p>
           </div>
@@ -642,12 +642,12 @@ Or Numbered/Plain text:
         </a>
       </div>
       {/* License Footer - bottom right */}
-      <div className="fixed bottom-4 right-4 text-xs text-gray-400">
+      <div className="fixed bottom-4 right-4 text-xs text-slate-400">
         <a
           href="https://github.com/zabbonat/References-Validation/blob/main/LICENSE"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-gray-600 dark:text-gray-300 transition-colors"
+          className="hover:text-slate-600 dark:text-slate-300 transition-colors"
         >
           MIT License © 2026 Diletta Abbonato
         </a>

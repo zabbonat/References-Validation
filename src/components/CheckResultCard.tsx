@@ -14,7 +14,7 @@ const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckRes
         'CrossRef': 'bg-blue-100 text-blue-700',
         'SemanticScholar': 'bg-purple-100 text-purple-700',
         'OpenAlex': 'bg-orange-100 text-orange-700',
-        'NotFound': 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
+        'NotFound': 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
     };
 
     return (
@@ -64,9 +64,9 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
     return (
         <button
             onClick={handleCopy}
-            className="flex items-center space-x-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs font-medium transition-colors"
+            className="flex items-center space-x-1 px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-medium transition-colors"
         >
-            {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+            {copied ? <Check size={12} className="text-green-600 dark:text-emerald-500" /> : <Copy size={12} />}
             <span>{copied ? 'Copied!' : label}</span>
         </button>
     );
@@ -74,19 +74,19 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
 
 export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf }) => {
     return (
-        <div className={`border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border dark:border-gray-700-red-400 border dark:border-gray-700-2' : ''}`}>
+        <div className={`border rounded-lg bg-white dark:bg-slate-900 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2' : ''}`}>
             {/* Header bar with status + source */}
             {!loading && result && (
-                <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700">
+                <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-950 border-b dark:border-slate-800">
                     <div className="flex items-center space-x-2">
                         {result.exists ? (
                             result.matchConfidence > 80 ? (
-                                <div className="flex items-center text-green-600 space-x-1">
+                                <div className="flex items-center text-green-600 dark:text-emerald-500 space-x-1">
                                     <CheckCircle size={16} />
                                     <span className="text-xs font-bold">Verified ({result.matchConfidence}%)</span>
                                 </div>
                             ) : result.matchConfidence > 50 ? (
-                                <div className="flex items-center text-yellow-600 space-x-1">
+                                <div className="flex items-center text-yellow-600 dark:text-amber-500 space-x-1">
                                     <XCircle size={16} />
                                     <span className="text-xs font-bold">Partial Match ({result.matchConfidence}%)</span>
                                 </div>
@@ -97,7 +97,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                 </div>
                             )
                         ) : (
-                            <div className="flex items-center text-red-600 space-x-1">
+                            <div className="flex items-center text-red-600 dark:text-rose-500 space-x-1">
                                 <XCircle size={16} />
                                 <span className="text-xs font-bold">Not Found</span>
                             </div>
@@ -105,7 +105,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
 
                         {/* Retraction badge */}
                         {result.retracted && (
-                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-red-100 dark:bg-rose-900/30 text-red-700 text-xs font-bold rounded-full">
                                 <AlertTriangle size={12} />
                                 <span>RETRACTED</span>
                             </span>
@@ -132,10 +132,10 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
             {/* Loading state */}
             {loading && (
                 <div className="px-4 py-3">
-                    <div className="text-sm text-gray-700 dark:text-gray-200 font-medium mb-1 truncate" title={reference}>
+                    <div className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-1 truncate" title={reference}>
                         {reference}
                     </div>
-                    <div className="text-gray-500 dark:text-gray-400 text-xs">Checking...</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-xs">Checking...</div>
                 </div>
             )}
 
@@ -143,16 +143,16 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
             {!loading && result && (
                 <div className="flex flex-col md:flex-row">
                     {/* LEFT: What the user inserted */}
-                    <div className="flex-1 p-4 border dark:border-gray-700-r border dark:border-gray-700-gray-100">
-                        <div className="text-xs font-semibold text-gray-400 uppercase mb-2">Your Input</div>
-                        <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed">
+                    <div className="flex-1 p-4 border-r border-slate-100">
+                        <div className="text-xs font-semibold text-slate-400 uppercase mb-2">Your Input</div>
+                        <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words leading-relaxed">
                             {reference}
                         </div>
                     </div>
 
                     {/* RIGHT: Correct / found version */}
-                    <div className={`flex-1 p-4 ${result.retracted ? 'bg-red-50/50' : result.exists ? 'bg-green-50/50' : 'bg-red-50/30'}`}>
-                        <div className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                    <div className={`flex-1 p-4 ${result.retracted ? 'bg-red-50/50 dark:bg-rose-900/10' : result.exists ? 'bg-green-50/50 dark:bg-emerald-900/10' : 'bg-red-50/30 dark:bg-rose-900/10'}`}>
+                        <div className="text-xs font-semibold text-slate-400 uppercase mb-2">
                             {result.exists ? 'Found Reference' : 'Result'}
                         </div>
 
@@ -160,21 +160,21 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                             <div className="space-y-2">
                                 {/* Corrected APA */}
                                 {result.correctedApa && (
-                                    <div className="p-2 bg-green-50 border dark:border-gray-700 border dark:border-gray-700-green-200 rounded text-sm text-gray-800 dark:text-gray-200">
-                                        <span className="font-bold text-xs text-green-600 block mb-1">✓ Corrected (APA):</span>
+                                    <div className="p-2 bg-green-50 dark:bg-emerald-900/20 border border-green-200 dark:border-emerald-800/50 rounded text-sm text-slate-800 dark:text-slate-300">
+                                        <span className="font-bold text-xs text-green-600 dark:text-emerald-500 block mb-1">✓ Corrected (APA):</span>
                                         {result.correctedApa}
                                     </div>
                                 )}
 
                                 {/* Original APA */}
                                 {result.apa && (
-                                    <div className="p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded text-sm text-gray-800 dark:text-gray-200">
+                                    <div className="p-2 bg-white dark:bg-slate-900 border rounded text-sm text-slate-800 dark:text-slate-300">
                                         <span className="font-bold text-xs text-blue-600 block mb-1">APA Style:</span>
                                         {result.apa}
                                     </div>
                                 )}
 
-                                <div className="flex space-x-2 text-xs text-gray-500 dark:text-gray-400">
+                                <div className="flex space-x-2 text-xs text-slate-500 dark:text-slate-400">
                                     {result.journal && <span>{result.journal}</span>}
                                     {result.year && <span>({result.year})</span>}
                                 </div>
@@ -191,7 +191,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
 
                                 {/* Issues */}
                                 {result.issues && result.issues.length > 0 && (
-                                    <div className="space-y-1 border dark:border-gray-700-t dark:border dark:border-gray-700-gray-700 pt-2 border dark:border-gray-700-gray-200">
+                                    <div className="space-y-1 border-t dark:border-slate-800 pt-2 border-slate-200">
                                         {result.issues.map((issue, idx) => (
                                             <div key={idx} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700' : 'text-red-500'}`}>• {issue}</div>
                                         ))}
@@ -213,7 +213,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
                                     No matching reference found in CrossRef, Semantic Scholar, or OpenAlex.
                                 </p>
 

@@ -50,7 +50,7 @@ const CopyBtn: React.FC<{ text: string; label: string; className?: string }> = (
             onClick={handleCopy}
             className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${className}`}
         >
-            {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+            {copied ? <Check size={12} className="text-green-600 dark:text-emerald-500" /> : <Copy size={12} />}
             <span>{copied ? 'Copied!' : label}</span>
         </button>
     );
@@ -62,7 +62,7 @@ const CopyBtn: React.FC<{ text: string; label: string; className?: string }> = (
 const StatusBadge: React.FC<{ result: CheckResult }> = ({ result }) => {
     if (result.retracted) {
         return (
-            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">
+            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-900/30 text-red-700 rounded-full text-xs font-bold">
                 <AlertTriangle size={12} />
                 <span>RETRACTED</span>
             </span>
@@ -70,7 +70,7 @@ const StatusBadge: React.FC<{ result: CheckResult }> = ({ result }) => {
     }
     if (!result.exists) {
         return (
-            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">
+            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-900/30 text-red-700 rounded-full text-xs font-bold">
                 <XCircle size={12} />
                 <span>Not Found</span>
             </span>
@@ -156,18 +156,18 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
     };
 
     return (
-        <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col font-sans">
+        <div className="bg-slate-50 dark:bg-slate-950 min-h-screen flex flex-col font-sans">
             {/* Header — hidden when printing */}
-            <header className="bg-white dark:bg-gray-800 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 px-4 py-3 shadow-sm sticky top-0 z-10 print:hidden">
+            <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 px-4 py-3 shadow-sm sticky top-0 z-10 print:hidden">
                 <div className="max-w-5xl mx-auto flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <FileText className="text-indigo-600" size={20} />
-                        <h1 className="font-bold text-lg text-gray-800 dark:text-gray-200">Validation Report</h1>
+                        <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300">Validation Report</h1>
                     </div>
                     <div className="flex items-center space-x-2">
                         <button
                             onClick={handleCopyAllBib}
-                            className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                         >
                             {copyAllSuccess ? <Check size={14} /> : <Copy size={14} />}
                             <span>{copyAllSuccess ? 'Copied!' : 'Copy All .bib'}</span>
@@ -210,14 +210,14 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                         </button>
                         <button
                             onClick={handlePrint}
-                            className="px-3 py-1.5 bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                         >
                             <Printer size={14} />
                             <span>Print</span>
                         </button>
                         <button
                             onClick={onBack}
-                            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors flex items-center space-x-1.5"
+                            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors flex items-center space-x-1.5"
                         >
                             <ArrowLeft size={14} />
                             <span>Back</span>
@@ -230,29 +230,29 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                 <div className="max-w-5xl mx-auto">
                     {/* Report Title (visible when printing) */}
                     <div className="hidden print:block text-center mb-6">
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Reference Validation Report</h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-300">Reference Validation Report</h1>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     </div>
 
                     {/* Summary Card */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-5 mb-6">
-                        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Summary</h2>
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border p-5 mb-6">
+                        <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Summary</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{stats.total}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total</div>
+                            <div className="bg-slate-50 dark:bg-slate-950 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-slate-800 dark:text-slate-300">{stats.total}</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total</div>
                             </div>
-                            <div className="bg-green-50 rounded-lg p-3 text-center">
+                            <div className="bg-green-50 dark:bg-emerald-900/20 rounded-lg p-3 text-center">
                                 <div className="text-2xl font-bold text-green-700">{stats.verified}</div>
-                                <div className="text-xs text-green-600 font-medium">Verified</div>
+                                <div className="text-xs text-green-600 dark:text-emerald-500 font-medium">Verified</div>
                             </div>
-                            <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                            <div className="bg-yellow-50 dark:bg-amber-900/20 rounded-lg p-3 text-center">
                                 <div className="text-2xl font-bold text-yellow-700">{stats.partial}</div>
-                                <div className="text-xs text-yellow-600 font-medium">Partial</div>
+                                <div className="text-xs text-yellow-600 dark:text-amber-500 font-medium">Partial</div>
                             </div>
-                            <div className="bg-red-50 rounded-lg p-3 text-center">
+                            <div className="bg-red-50 dark:bg-rose-900/20 rounded-lg p-3 text-center">
                                 <div className="text-2xl font-bold text-red-700">{stats.notFound}</div>
-                                <div className="text-xs text-red-600 font-medium">Not Found</div>
+                                <div className="text-xs text-red-600 dark:text-rose-500 font-medium">Not Found</div>
                             </div>
                             <div className="bg-orange-50 rounded-lg p-3 text-center">
                                 <div className="text-2xl font-bold text-orange-700">{stats.withIssues}</div>
@@ -260,7 +260,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                             </div>
                         </div>
                         {stats.retracted > 0 && (
-                            <div className="mt-3 px-3 py-2 bg-red-100 border dark:border-gray-700 border dark:border-gray-700-red-300 rounded-lg flex items-center space-x-2">
+                            <div className="mt-3 px-3 py-2 bg-red-100 dark:bg-rose-900/30 border border-red-300 rounded-lg flex items-center space-x-2">
                                 <AlertTriangle size={16} className="text-red-700" />
                                 <span className="text-sm font-bold text-red-700">⚠ {stats.retracted} retracted paper(s) detected!</span>
                             </div>
@@ -269,7 +269,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
 
                     {/* Filter bar (hidden when printing) */}
                     <div className="flex items-center space-x-2 mb-4 print:hidden">
-                        <Filter size={14} className="text-gray-400" />
+                        <Filter size={14} className="text-slate-400" />
                         {(['all', 'verified', 'partial', 'mismatch', 'notfound', 'issues'] as FilterType[]).map(f => (
                             <button
                                 key={f}
@@ -277,7 +277,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                                     filter === f 
                                     ? 'bg-blue-600 text-white' 
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                                 }`}
                             >
                                 {f === 'all' ? `All (${items.length})` :
@@ -303,18 +303,18 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                             return (
                                 <div
                                     key={idx}
-                                    className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 overflow-hidden print:break-inside-avoid ${
-                                        result.retracted ? 'border dark:border-gray-700-red-400 border dark:border-gray-700-2' : ''
+                                    className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm border overflow-hidden print:break-inside-avoid ${
+                                        result.retracted ? 'border-red-400 border-2' : ''
                                     }`}
                                 >
                                     {/* Reference header */}
                                     <div className={`px-4 py-2.5 flex items-center justify-between ${
-                                        isVerified ? 'bg-green-50 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 border dark:border-gray-700-green-100' :
-                                        isPartial ? 'bg-yellow-50 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 border dark:border-gray-700-yellow-100' :
-                                        'bg-red-50 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 border dark:border-gray-700-red-100'
+                                        isVerified ? 'bg-green-50 dark:bg-emerald-900/20 border-b dark:border-slate-800 border-green-100 dark:border-emerald-800/30' :
+                                        isPartial ? 'bg-yellow-50 dark:bg-amber-900/20 border-b dark:border-slate-800 border-yellow-100 dark:border-amber-800/30' :
+                                        'bg-red-50 dark:bg-rose-900/20 border-b dark:border-slate-800 border-red-100 dark:border-rose-800/30'
                                     }`}>
                                         <div className="flex items-center space-x-3">
-                                            <span className="text-xs font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">#{idx + 1}</span>
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">#{idx + 1}</span>
                                             <StatusBadge result={result} />
                                             {item.duplicateOf !== undefined && (
                                                 <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
@@ -324,7 +324,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             {result.source !== 'NotFound' && (
-                                                <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-medium">
+                                                <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full font-medium">
                                                     {result.source}
                                                     {result.fallbackSource ? ` + ${result.fallbackSource}` : ''}
                                                 </span>
@@ -340,8 +340,8 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                     <div className="p-4 space-y-3">
                                         {/* User's input */}
                                         <div>
-                                            <div className="text-xs font-semibold text-gray-400 uppercase mb-1">Your Input</div>
-                                            <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
+                                            <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Your Input</div>
+                                            <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words leading-relaxed bg-slate-50 dark:bg-slate-950 rounded-lg px-3 py-2">
                                                 {item.ref}
                                             </div>
                                         </div>
@@ -349,33 +349,33 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                         {/* Found result */}
                                         {result.exists && (
                                             <div>
-                                                <div className="text-xs font-semibold text-gray-400 uppercase mb-1">Found Reference</div>
+                                                <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Found Reference</div>
                                                 {/* Corrected APA */}
                                                 {result.correctedApa && (
-                                                    <div className="p-2.5 bg-green-50 border dark:border-gray-700 border dark:border-gray-700-green-200 rounded-lg text-sm text-gray-800 dark:text-gray-200 mb-2">
-                                                        <span className="font-bold text-xs text-green-600 block mb-1">✓ Corrected (APA):</span>
+                                                    <div className="p-2.5 bg-green-50 dark:bg-emerald-900/20 border border-green-200 dark:border-emerald-800/50 rounded-lg text-sm text-slate-800 dark:text-slate-300 mb-2">
+                                                        <span className="font-bold text-xs text-green-600 dark:text-emerald-500 block mb-1">✓ Corrected (APA):</span>
                                                         {result.correctedApa}
                                                     </div>
                                                 )}
                                                 {/* Original APA */}
                                                 {result.apa && (
-                                                    <div className="p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200">
+                                                    <div className="p-2.5 bg-white dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-300">
                                                         <span className="font-bold text-xs text-blue-600 block mb-1">APA Style:</span>
                                                         {result.apa}
                                                     </div>
                                                 )}
                                                 {/* Metadata row */}
-                                                <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                    {result.journal && <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{result.journal}</span>}
-                                                    {result.year && <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{result.year}</span>}
-                                                    {result.doi && <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">DOI: {result.doi}</span>}
+                                                <div className="flex flex-wrap gap-2 mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                                    {result.journal && <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{result.journal}</span>}
+                                                    {result.year && <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{result.year}</span>}
+                                                    {result.doi && <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">DOI: {result.doi}</span>}
                                                 </div>
                                             </div>
                                         )}
 
                                         {/* Issues */}
                                         {result.issues && result.issues.length > 0 && (
-                                            <div className="space-y-1 border dark:border-gray-700-t dark:border dark:border-gray-700-gray-700 pt-2 border dark:border-gray-700-gray-200">
+                                            <div className="space-y-1 border-t dark:border-slate-800 pt-2 border-slate-200">
                                                 {result.issues.map((issue, i) => (
                                                     <div key={i} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700' : 'text-orange-600'}`}>
                                                         • {issue}
@@ -391,7 +391,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                 <CopyBtn
                                                     text={result.correctedBibtex || result.bibtex || ''}
                                                     label={result.correctedBibtex ? 'Copy BibTeX (Corrected)' : 'Copy BibTeX'}
-                                                    className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
+                                                    className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300"
                                                 />
                                             )}
                                             {/* Copy APA */}
@@ -399,7 +399,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                 <CopyBtn
                                                     text={result.correctedApa || result.apa}
                                                     label={result.correctedApa ? 'Copy APA (Corrected)' : 'Copy APA'}
-                                                    className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
+                                                    className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300"
                                                 />
                                             )}
                                             {/* Google Scholar — for not found or partial matches */}
@@ -422,7 +422,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                     </div>
 
                     {/* Footer */}
-                    <div className="text-center text-xs text-gray-400 mt-8 mb-4">
+                    <div className="text-center text-xs text-slate-400 mt-8 mb-4">
                         Generated by CheckIfExist — Reference Validation Tool
                     </div>
                 </div>
