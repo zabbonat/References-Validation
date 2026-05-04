@@ -860,7 +860,10 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             // ===== REJECT LOW-CONFIDENCE RESULTS =====
             // If too many things don't match, this is probably the wrong paper entirely
             // (e.g., a book review instead of the book, a different paper with similar title)
-            if (confidence < 40 || issues.length >= 3) {
+            // However, if title and authors match very well, it's the right paper with wrong metadata!
+            const isDefiniteMatch = titleSim > 85 && authorSim > 80;
+            
+            if (!isDefiniteMatch && (confidence < 40 || issues.length >= 3)) {
                 return {
                     exists: false,
                     source: 'NotFound',

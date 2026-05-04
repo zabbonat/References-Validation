@@ -51,3 +51,7 @@ If you use CheckIfExist in your research, peer-review process, or academic workf
   journal={arXiv preprint arXiv:2602.15871},
   year={2026}
 }
+```
+
+---
+*Disclaimer: The tool may occasionally misclassify authentic references, so always double-check flagged items manually.*

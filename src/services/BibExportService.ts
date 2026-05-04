@@ -67,3 +67,63 @@ export const copyToClipboard = async (content: string): Promise<boolean> => {
 
 // Backward compatibility aliases
 export const copyBibToClipboard = copyToClipboard;
+
+/**
+ * Generate and download Excel report from validation results
+ */
+export const downloadExcelFile = async (results: { ref: string; result?: CheckResult }[], filename: string = 'validation_report.xlsx'): Promise<void> => {
+    const XLSX = await import('xlsx');
+    
+    const data = results.map((item, idx) => {
+        const r = item.result;
+        if (!r) return {
+            'No.': idx + 1,
+            'Original Reference': item.ref,
+            'Status': 'Loading/Error',
+            'Found Title': '',
+            'Found Authors': '',
+            'Found Year': '',
+            'Found Journal': '',
+            'DOI': '',
+            'Confidence (%)': '',
+            'Issues': ''
+        };
+
+        const status = !r.exists ? 'Not Found' 
+                     : r.matchConfidence > 80 ? 'Verified'
+                     : r.matchConfidence > 50 ? 'Partial Match'
+                     : 'Mismatch / Error';
+
+        return {
+            'No.': idx + 1,
+            'Original Reference': item.ref,
+            'Status': status,
+            'Found Title': r.title || '',
+            'Found Authors': r.authors || '',
+            'Found Year': r.year || '',
+            'Found Journal': r.journal || '',
+            'DOI': r.doi || '',
+            'Confidence (%)': r.exists ? r.matchConfidence : 0,
+            'Issues': r.issues ? r.issues.join('; ') : ''
+        };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    
+    worksheet['!cols'] = [
+        { wch: 5 },   // No.
+        { wch: 50 },  // Original Ref
+        { wch: 15 },  // Status
+        { wch: 40 },  // Found Title
+        { wch: 30 },  // Found Authors
+        { wch: 10 },  // Found Year
+        { wch: 20 },  // Found Journal
+        { wch: 20 },  // DOI
+        { wch: 15 },  // Confidence
+        { wch: 40 }   // Issues
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Validation Report');
+    XLSX.writeFile(workbook, filename);
+};

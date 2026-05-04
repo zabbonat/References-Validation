@@ -5,7 +5,7 @@ import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './serv
 import { generateBibFileContent, generateAPAFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
 import { ReportView } from './components/ReportView';
-import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon } from 'lucide-react';
 
 const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
 
@@ -77,21 +77,63 @@ interface BatchItem {
   duplicateOf?: number;
 }
 
+const loadSession = () => {
+  try {
+    const saved = localStorage.getItem('checkifexist_session');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to parse session from local storage', e);
+  }
+  return null;
+};
+
 function App() {
+  const session = useMemo(() => loadSession(), []);
+
   // Unified input
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(session?.input || '');
 
   // Quick Check State
   const [quickResult, setQuickResult] = useState<CheckResult | null>(null);
   const [loadingQuick, setLoadingQuick] = useState(false);
 
   // Batch State
-  const [batchResults, setBatchResults] = useState<BatchItem[]>([]);
-  const [showBatchView, setShowBatchView] = useState(false);
+  const [batchResults, setBatchResults] = useState<BatchItem[]>(session?.batchResults || []);
+  const [showBatchView, setShowBatchView] = useState(session?.showBatchView || false);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [filter, setFilter] = useState<FilterType>('all');
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
-  const [showReport, setShowReport] = useState(false);
+  const [filter, setFilter] = useState<FilterType>(session?.filter || 'all');
+  const [batchProgress, setBatchProgress] = useState(session?.batchProgress || { current: 0, total: 0 });
+  const [showReport, setShowReport] = useState(session?.showReport || false);
+
+  // Dark Mode State
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('checkifexist_theme') === 'dark' || 
+      (!localStorage.getItem('checkifexist_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('checkifexist_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('checkifexist_theme', 'light');
+    }
+  }, [darkMode]);
+
+  // Auto-save session
+  useEffect(() => {
+    localStorage.setItem('checkifexist_session', JSON.stringify({
+      input,
+      batchResults,
+      showBatchView,
+      filter,
+      batchProgress,
+      showReport
+    }));
+  }, [input, batchResults, showBatchView, filter, batchProgress, showReport]);
 
   async function handleQuickCheck(text: string) {
     if (!text) return;
@@ -223,6 +265,17 @@ function App() {
     }
   };
 
+  const clearSession = () => {
+    if (confirm('Are you sure you want to clear your current session? This will remove all loaded results.')) {
+      setInput('');
+      setBatchResults([]);
+      setShowBatchView(false);
+      setShowReport(false);
+      setQuickResult(null);
+      localStorage.removeItem('checkifexist_session');
+    }
+  };
+
   const allBatchDone = batchResults.length > 0 && !batchResults.some(r => r.loading);
   
   // Compute summary stats
@@ -273,13 +326,13 @@ function App() {
     const progressPct = batchProgress.total > 0 ? Math.round((batchProgress.current / batchProgress.total) * 100) : 0;
 
     return (
-      <div className="bg-gray-50 min-h-screen flex flex-col font-sans">
-        <header className="bg-white border-b px-4 py-3 shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col font-sans">
+        <header className="bg-white dark:bg-gray-800 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 px-4 py-3 shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
           {/* Top row: title + buttons */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-3">
               <ClipboardList className="text-blue-600" size={20} />
-              <h1 className="font-bold text-lg text-gray-800">Batch Check Results</h1>
+              <h1 className="font-bold text-lg text-gray-800 dark:text-gray-200">Batch Check Results</h1>
               {allBatchDone && (
                 <button
                   onClick={async () => {
@@ -340,9 +393,23 @@ function App() {
                   setBatchResults([]);
                   setBatchProgress({ current: 0, total: 0 });
                 }}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors"
               >
                 ← Back
+              </button>
+              <div className="border dark:border-gray-700-l border dark:border-gray-700-gray-300 h-6 mx-2"></div>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-800 dark:text-gray-400 rounded-lg transition-colors"
+                title="Toggle Dark Mode"
+              >
+                {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+              <button
+                onClick={clearSession}
+                className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border dark:border-gray-700 border dark:border-gray-700-transparent hover:border dark:border-gray-700-red-200"
+              >
+                Clear Session
               </button>
             </div>
           </div>
@@ -350,11 +417,11 @@ function App() {
           {/* Progress bar */}
           {!allBatchDone && batchProgress.total > 0 && (
             <div className="mb-2">
-              <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                 <span>Checking references...</span>
                 <span>{batchProgress.current} / {batchProgress.total} ({progressPct}%)</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                 <div 
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                   style={{ width: `${progressPct}%` }}
@@ -409,7 +476,7 @@ function App() {
                   className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                     filter === f 
                       ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 dark:bg-gray-600'
                   }`}
                 >
                   {f === 'all' ? `All (${batchResults.length})` :
@@ -448,23 +515,38 @@ function App() {
 
   // Main unified view
   return (
-    <div className="bg-gray-50 min-h-screen flex flex-col font-sans">
-      <header className="bg-white border-b px-4 py-3 flex items-center justify-center shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col font-sans">
+      <header className="bg-white dark:bg-gray-800 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700 px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
         <div className="flex items-center space-x-2">
           <Search className="text-blue-600" size={20} />
-          <h1 className="font-bold text-lg text-gray-800">CheckIfExist</h1>
+          <h1 className="font-bold text-lg text-gray-800 dark:text-gray-200">CheckIfExist</h1>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-800 dark:text-gray-400 rounded-lg transition-colors"
+            title="Toggle Dark Mode"
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button
+            onClick={clearSession}
+            className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border dark:border-gray-700 border dark:border-gray-700-transparent hover:border dark:border-gray-700-red-200"
+          >
+            Clear Session
+          </button>
         </div>
       </header>
 
       <main className="flex-1 p-4 overflow-auto">
         <div className="max-w-2xl mx-auto space-y-4">
           {/* Unified Input Card */}
-          <div className="bg-white p-5 rounded-xl shadow-sm border">
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+          <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
               Paste Reference(s)
             </label>
             <textarea
-              className="w-full h-64 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none text-sm font-mono"
+              className="w-full h-64 p-3 border dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none text-sm font-mono"
               placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
 
 Example BibTeX:
@@ -526,6 +608,13 @@ Or Numbered/Plain text:
             </div>
           </div>
 
+          {/* Disclaimer */}
+          <div className="text-center px-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+              The tool may occasionally misclassify authentic references, so always double-check flagged items manually.
+            </p>
+          </div>
+
           {/* Quick Check Result - stays on same page */}
           {(quickResult || loadingQuick) && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -558,7 +647,7 @@ Or Numbered/Plain text:
           href="https://github.com/zabbonat/References-Validation/blob/main/LICENSE"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-gray-600 transition-colors"
+          className="hover:text-gray-600 dark:text-gray-300 transition-colors"
         >
           MIT License © 2026 Diletta Abbonato
         </a>

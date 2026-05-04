@@ -14,7 +14,7 @@ const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckRes
         'CrossRef': 'bg-blue-100 text-blue-700',
         'SemanticScholar': 'bg-purple-100 text-purple-700',
         'OpenAlex': 'bg-orange-100 text-orange-700',
-        'NotFound': 'bg-gray-100 text-gray-700'
+        'NotFound': 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
     };
 
     return (
@@ -74,10 +74,10 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
 
 export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf }) => {
     return (
-        <div className={`border rounded-lg bg-white shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2' : ''}`}>
+        <div className={`border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border dark:border-gray-700-red-400 border dark:border-gray-700-2' : ''}`}>
             {/* Header bar with status + source */}
             {!loading && result && (
-                <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
+                <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700-b dark:border dark:border-gray-700-gray-700">
                     <div className="flex items-center space-x-2">
                         {result.exists ? (
                             result.matchConfidence > 80 ? (
@@ -132,10 +132,10 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
             {/* Loading state */}
             {loading && (
                 <div className="px-4 py-3">
-                    <div className="text-sm text-gray-700 font-medium mb-1 truncate" title={reference}>
+                    <div className="text-sm text-gray-700 dark:text-gray-200 font-medium mb-1 truncate" title={reference}>
                         {reference}
                     </div>
-                    <div className="text-gray-500 text-xs">Checking...</div>
+                    <div className="text-gray-500 dark:text-gray-400 text-xs">Checking...</div>
                 </div>
             )}
 
@@ -143,9 +143,9 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
             {!loading && result && (
                 <div className="flex flex-col md:flex-row">
                     {/* LEFT: What the user inserted */}
-                    <div className="flex-1 p-4 border-r border-gray-100">
+                    <div className="flex-1 p-4 border dark:border-gray-700-r border dark:border-gray-700-gray-100">
                         <div className="text-xs font-semibold text-gray-400 uppercase mb-2">Your Input</div>
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
+                        <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed">
                             {reference}
                         </div>
                     </div>
@@ -160,7 +160,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                             <div className="space-y-2">
                                 {/* Corrected APA */}
                                 {result.correctedApa && (
-                                    <div className="p-2 bg-green-50 border border-green-200 rounded text-sm text-gray-800">
+                                    <div className="p-2 bg-green-50 border dark:border-gray-700 border dark:border-gray-700-green-200 rounded text-sm text-gray-800 dark:text-gray-200">
                                         <span className="font-bold text-xs text-green-600 block mb-1">✓ Corrected (APA):</span>
                                         {result.correctedApa}
                                     </div>
@@ -168,13 +168,13 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
 
                                 {/* Original APA */}
                                 {result.apa && (
-                                    <div className="p-2 bg-white border rounded text-sm text-gray-800">
+                                    <div className="p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded text-sm text-gray-800 dark:text-gray-200">
                                         <span className="font-bold text-xs text-blue-600 block mb-1">APA Style:</span>
                                         {result.apa}
                                     </div>
                                 )}
 
-                                <div className="flex space-x-2 text-xs text-gray-500">
+                                <div className="flex space-x-2 text-xs text-gray-500 dark:text-gray-400">
                                     {result.journal && <span>{result.journal}</span>}
                                     {result.year && <span>({result.year})</span>}
                                 </div>
@@ -191,7 +191,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
 
                                 {/* Issues */}
                                 {result.issues && result.issues.length > 0 && (
-                                    <div className="space-y-1 border-t pt-2 border-gray-200">
+                                    <div className="space-y-1 border dark:border-gray-700-t dark:border dark:border-gray-700-gray-700 pt-2 border dark:border-gray-700-gray-200">
                                         {result.issues.map((issue, idx) => (
                                             <div key={idx} className={`text-xs font-semibold ${issue.includes('RETRACTED') ? 'text-red-700' : 'text-red-500'}`}>• {issue}</div>
                                         ))}
@@ -213,7 +213,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                <p className="text-sm text-gray-500">
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
                                     No matching reference found in CrossRef, Semantic Scholar, or OpenAlex.
                                 </p>
 
