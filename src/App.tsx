@@ -464,8 +464,8 @@ Example BibTeX:
 Or APA/plain text:
 Smith, J. (2024). Title of article. Journal Name.
 
-Or Chinese-style:
-[1]Author. Title[J]. Journal, 2024, 10(2): 123-456.`}
+Or Numbered/Plain text:
+[1] Author. Title. Journal, 2024, 10(2): 123-456.`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />

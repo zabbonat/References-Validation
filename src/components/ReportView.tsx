@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import type { CheckResult } from '../services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, downloadBibFile, downloadFile, copyToClipboard } from '../services/BibExportService';
-import { CheckCircle, XCircle, AlertTriangle, ExternalLink, Search, Copy, Check, FileText, ArrowLeft, Download, Printer } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, ExternalLink, Search, Copy, Check, FileText, ArrowLeft, Download, Printer, Filter } from 'lucide-react';
+
+type FilterType = 'all' | 'verified' | 'partial' | 'notfound' | 'issues';
 
 interface ReportItem {
     ref: string;
@@ -89,6 +91,7 @@ const StatusBadge: React.FC<{ result: CheckResult }> = ({ result }) => {
 
 export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
     const [copyAllSuccess, setCopyAllSuccess] = useState(false);
+    const [filter, setFilter] = useState<FilterType>('all');
 
     const results = useMemo(() => items.filter(i => i.result), [items]);
     const stats = useMemo(() => {
@@ -99,6 +102,20 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
         const retracted = results.filter(r => r.result!.retracted).length;
         return { verified, partial, notFound, withIssues, retracted, total: results.length };
     }, [results]);
+
+    const filteredItems = useMemo(() => {
+        if (filter === 'all') return items;
+        return items.filter(r => {
+            if (!r.result) return true;
+            switch (filter) {
+                case 'verified': return r.result.exists && r.result.matchConfidence > 80;
+                case 'partial': return r.result.exists && r.result.matchConfidence <= 80;
+                case 'notfound': return !r.result.exists;
+                case 'issues': return r.result.issues.length > 0;
+                default: return true;
+            }
+        });
+    }, [items, filter]);
 
     const handleCopyAllBib = async () => {
         const allResults = items.map(i => i.result).filter((r): r is CheckResult => !!r);
@@ -210,9 +227,31 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                         )}
                     </div>
 
-                    {/* All References — no filter */}
+                    {/* Filter bar (hidden when printing) */}
+                    <div className="flex items-center space-x-2 mb-4 print:hidden">
+                        <Filter size={14} className="text-gray-400" />
+                        {(['all', 'verified', 'partial', 'notfound', 'issues'] as FilterType[]).map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
+                                    filter === f 
+                                    ? 'bg-blue-600 text-white' 
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                {f === 'all' ? `All (${items.length})` :
+                                 f === 'verified' ? `Verified (${stats.verified})` :
+                                 f === 'partial' ? `Partial (${stats.partial})` :
+                                 f === 'notfound' ? `Not Found (${stats.notFound})` :
+                                 `Issues (${stats.withIssues})`}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* References List */}
                     <div className="space-y-3">
-                        {items.map((item, idx) => {
+                        {filteredItems.map((item, idx) => {
                             const result = item.result;
                             if (!result) return null;
 

@@ -927,7 +927,7 @@ const scoreCandidateResult = (
  * Try to resolve a DOI directly via CrossRef for exact match.
  * Returns a CheckResult with 100% confidence if found.
  */
-const resolveByDOI = async (doi: string): Promise<CheckResult | null> => {
+const resolveByDOI = async (doi: string, expected?: ExpectedMetadata, query?: string): Promise<CheckResult | null> => {
     try {
         const cleanDoi = doi.replace(/^https?:\/\/doi\.org\//i, '').trim();
         const response = await fetch(`https://api.crossref.org/works/${encodeURIComponent(cleanDoi)}`);
@@ -954,6 +954,18 @@ const resolveByDOI = async (doi: string): Promise<CheckResult | null> => {
             issues.push('⚠️ This paper has been RETRACTED');
         }
 
+        // Validate if the DOI actually matches the user's query text
+        const titleSim = computeTitleSim(expected?.title || query || '', resultTitle, expected, query);
+        let matchConfidence = 100;
+        
+        if (titleSim < 70) {
+            matchConfidence = 50; // High penalty, likely wrong DOI for this reference
+            issues.push(`⚠️ Title mismatch with DOI metadata. Found: "${resultTitle}"`);
+        } else if (titleSim < 85) {
+            matchConfidence = 80; // Partial match, slight difference
+            issues.push(`Note: Title from DOI slightly differs from input.`);
+        }
+
         return {
             exists: true,
             title: resultTitle,
@@ -967,9 +979,9 @@ const resolveByDOI = async (doi: string): Promise<CheckResult | null> => {
             apa: formatAPA(item),
             bibtex: generateBibTeX(item),
             source: 'CrossRef',
-            matchConfidence: 100,
-            titleMatchScore: 100,
-            authorMatchScore: 100,
+            matchConfidence: matchConfidence,
+            titleMatchScore: titleSim,
+            authorMatchScore: 100, // Hardcoded for simplicity as DOI guarantees author if title matches
             journalMatchScore: 100,
             issues
         };
@@ -1004,7 +1016,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // If the query or expected metadata contains a DOI, try direct resolution first
     const queryDOI = extractDOI(originalQuery || query);
     if (queryDOI) {
-        const doiResult = await resolveByDOI(queryDOI);
+        const doiResult = await resolveByDOI(queryDOI, expected, originalQuery || query);
         if (doiResult) {
             return doiResult;
         }
