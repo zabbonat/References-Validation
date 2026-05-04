@@ -8,7 +8,7 @@
 - **Batch Processing**: Paste a list of BibTeX entries or plain text/numbered citations to verify them all at once. Includes a progress bar and summary statistics.
 - **Advanced Validation Logic**:
   - Detects partial matches (e.g., correct title but wrong author or year).
-  - Validates DOIs: explicitly flags **Mismatch / Error** if the provided DOI points to an unrelated paper.
+  - Validates DOIs: explicitly flags **Mismatch/Error** if the provided DOI points to an unrelated paper.
   - Handles "First Name Last Name" vs "Last Name First Name" variations.
   - Penalizes scores for missing authors in the query.
 - **Smart Filtering & Reporting**:
