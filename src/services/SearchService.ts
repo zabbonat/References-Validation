@@ -134,7 +134,9 @@ const extractLikelyTitle = (rawRef: string): string | null => {
 
 // ===== MINIMUM TITLE SIMILARITY TO ACCEPT A RESULT =====
 // Below this threshold, the result is treated as "Not Found" rather than showing a different paper
-const MIN_TITLE_SIMILARITY = 55;
+const MIN_TITLE_SIMILARITY = 70; // Minimum title similarity to consider a match
+
+export const normalize = (str: string): string => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
 
 // Levenshtein distance for string similarity
 const levenshteinDistance = (a: string, b: string): number => {
@@ -187,8 +189,8 @@ const wordOverlapSimilarity = (str1: string, str2: string): number => {
 
 const calculateSimilarity = (str1: string, str2: string): number => {
     if (!str1 || !str2) return 0;
-    const clean1 = str1.toLowerCase().replace(/[^\w\s]/g, '');
-    const clean2 = str2.toLowerCase().replace(/[^\w\s]/g, '');
+    const clean1 = normalize(str1);
+    const clean2 = normalize(str2);
     if (clean1 === clean2) return 100;
 
     // Levenshtein-based similarity (character-level, penalizes word reordering)
@@ -201,6 +203,49 @@ const calculateSimilarity = (str1: string, str2: string): number => {
 
     // Use the best of both — handles both character typos AND word reordering
     return Math.max(levenSim, wordSim);
+};
+
+export const computeTitleSim = (expectedTitle: string, resultTitle: string, _expected?: { title?: string, authors?: string, journal?: string, year?: string }, _originalQuery?: string): number => {
+    if (!expectedTitle || !resultTitle) return 0;
+    
+    const cleanExpected = normalize(expectedTitle);
+    const cleanResult = normalize(resultTitle);
+
+    let sim = calculateSimilarity(cleanExpected, cleanResult);
+
+    // If the expected title contains the result title (e.g. expected is a full citation)
+    if (sim < 90 && cleanExpected.includes(cleanResult) && cleanResult.length > 20) {
+        sim = 95;
+    }
+
+    return sim;
+};
+
+/**
+ * Computes author similarity by checking if the family names of the result authors 
+ * are present in the expected authors string or the original user query.
+ */
+export const computeAuthorSim = (expectedAuthorsStr: string, resultAuthors: string[]): number => {
+    if (!expectedAuthorsStr || resultAuthors.length === 0) return 100;
+    
+    const nValidation = normalize(expectedAuthorsStr);
+    let matchCount = 0;
+    let validAuthors = 0;
+
+    for (const a of resultAuthors) {
+        // Extract the last word as a naive family name approximation for OpenAlex/SS strings
+        const parts = normalize(a).split(' ');
+        const family = parts[parts.length - 1];
+        if (family.length > 2) {
+            validAuthors++;
+            if (nValidation.includes(family)) {
+                matchCount++;
+            }
+        }
+    }
+    
+    if (validAuthors === 0) return 100;
+    return Math.round((matchCount / validAuthors) * 100);
 };
 
 // Decode common LaTeX special characters in BibTeX
@@ -315,7 +360,6 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
         if (items.length > 0) {
             // Helper to clean strings for comparison
-            const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
             const nQuery = normalize(query);
 
             // Helper: extract ALL years from a CrossRef item (published, published-print, published-online, issued, created)
@@ -872,39 +916,11 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 };
 
 /**
- * Compute a unified title similarity score, handling both Quick Check (title in query) and Batch (explicit expected title).
- */
-const computeTitleSim = (title: string, resultTitle: string, expected?: ExpectedMetadata, query?: string): number => {
-    const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    let sim = 0;
-    if (expected?.title) {
-        sim = calculateSimilarity(expected.title, resultTitle);
-    } else {
-        const nQuery = normalize(query || title);
-        const nResultTitle = normalize(resultTitle);
-        if (nQuery.includes(nResultTitle)) {
-            sim = 100;
-        } else if (nResultTitle.includes(nQuery)) {
-            sim = 95;
-        } else {
-            sim = calculateSimilarity(query || title, resultTitle);
-        }
-    }
-    return sim;
-};
-
-/**
  * Score a candidate result from any source. Higher = better.
  * Considers title similarity, year match, and journal match.
  */
-const scoreCandidateResult = (
-    titleSim: number,
-    resultYear: string | undefined,
-    resultJournal: string | undefined,
-    expectedYear: string | undefined,
-    expectedJournal: string | undefined
-): number => {
-    let score = titleSim * 3; // Title is most important
+const scoreCandidateResult = (titleSim: number, authorSim: number, resultYear: string | undefined, resultJournal: string | undefined, expectedYear?: string, expectedJournal?: string): number => {
+    let score = (titleSim * 2 + authorSim) / 3; // Weight title heavily, but authors still matter
 
     if (expectedYear && resultYear) {
         if (resultYear === expectedYear) {
@@ -1070,6 +1086,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             result: crossRefResult,
             score: scoreCandidateResult(
                 crossRefResult.titleMatchScore,
+                crossRefResult.authorMatchScore,
                 crossRefResult.year,
                 crossRefResult.journal,
                 expectedYear,
@@ -1082,15 +1099,20 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // --- Semantic Scholar candidate ---
     if (ssResult) {
         const ssTitleSim = computeTitleSim(title, ssResult.title, expected, query);
+        const ssAuthorSim = computeAuthorSim(expected?.authors || query, ssResult.authors);
 
         if (ssTitleSim >= MIN_TITLE_SIMILARITY) {
             const ssScore = scoreCandidateResult(
                 ssTitleSim,
+                ssAuthorSim,
                 ssResult.year?.toString(),
                 ssResult.venue,
                 expectedYear,
                 expectedJournal
             );
+
+            // Calculate overall confidence based on multiple fields, penalize if authors are completely wrong
+            const confidence = (ssTitleSim * 2 + ssAuthorSim) / 3;
 
             candidates.push({
                 source: 'SemanticScholar',
@@ -1105,11 +1127,11 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                     apa: formatSemanticScholarAPA(ssResult),
                     bibtex: generateSemanticScholarBibTeX(ssResult),
                     source: 'SemanticScholar',
-                    matchConfidence: Math.min(95, ssTitleSim + 10),
+                    matchConfidence: Math.min(95, confidence),
                     titleMatchScore: ssTitleSim,
-                    authorMatchScore: 100,
+                    authorMatchScore: ssAuthorSim,
                     journalMatchScore: ssResult.venue ? 90 : 50,
-                    issues: []
+                    issues: ssAuthorSim < 50 ? [`Author Mismatch in Semantic Scholar fallback`] : []
                 },
                 score: ssScore,
                 titleSim: ssTitleSim
@@ -1120,15 +1142,19 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // --- OpenAlex candidate ---
     if (oaResult) {
         const oaTitleSim = computeTitleSim(title, oaResult.title, expected, query);
+        const oaAuthorSim = computeAuthorSim(expected?.authors || query, oaResult.authors);
 
         if (oaTitleSim >= MIN_TITLE_SIMILARITY) {
             const oaScore = scoreCandidateResult(
                 oaTitleSim,
+                oaAuthorSim,
                 oaResult.year?.toString(),
                 oaResult.journal,
                 expectedYear,
                 expectedJournal
             );
+            
+            const confidence = (oaTitleSim * 2 + oaAuthorSim) / 3;
 
             candidates.push({
                 source: 'OpenAlex',
@@ -1143,11 +1169,11 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                     apa: formatOpenAlexAPA(oaResult),
                     bibtex: generateOpenAlexBibTeX(oaResult),
                     source: 'OpenAlex',
-                    matchConfidence: Math.min(90, oaTitleSim + 5),
+                    matchConfidence: Math.min(90, confidence),
                     titleMatchScore: oaTitleSim,
-                    authorMatchScore: 100,
+                    authorMatchScore: oaAuthorSim,
                     journalMatchScore: oaResult.journal ? 85 : 50,
-                    issues: []
+                    issues: oaAuthorSim < 50 ? [`Author Mismatch in OpenAlex fallback`] : []
                 },
                 score: oaScore,
                 titleSim: oaTitleSim
