@@ -1015,10 +1015,14 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // ===== DOI DIRECT LOOKUP =====
     // If the query or expected metadata contains a DOI, try direct resolution first
     const queryDOI = extractDOI(originalQuery || query);
+    let invalidDoiIssue = '';
+
     if (queryDOI) {
         const doiResult = await resolveByDOI(queryDOI, expected, originalQuery || query);
         if (doiResult) {
             return doiResult;
+        } else {
+            invalidDoiIssue = `⚠️ The provided DOI (${queryDOI}) is invalid or points to an unrelated article.`;
         }
     }
 
@@ -1169,6 +1173,9 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             if (futureYearIssues.length > 0) {
                 crossRefResult.issues = [...crossRefResult.issues, ...futureYearIssues];
             }
+            if (invalidDoiIssue) {
+                crossRefResult.issues.push(invalidDoiIssue);
+            }
             return crossRefResult;
         }
 
@@ -1181,6 +1188,9 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         if (futureYearIssues.length > 0) {
             winner.issues = [...winner.issues, ...futureYearIssues];
         }
+        if (invalidDoiIssue) {
+            winner.issues.push(invalidDoiIssue);
+        }
         return winner;
     }
 
@@ -1191,9 +1201,31 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
             console.log(`[Retry] All sources failed, retrying with extracted title: "${extractedTitle}"`);
             const retryResult = await checkWithFallback(extractedTitle, expected, query);
             if (retryResult.exists) {
+                if (invalidDoiIssue && !retryResult.issues.includes(invalidDoiIssue)) {
+                    retryResult.issues.push(invalidDoiIssue);
+                }
                 return retryResult;
             }
         }
+    }
+
+    if (queryDOI) {
+        return {
+            exists: true, // Force warning instead of NotFound
+            title: expected?.title || extractLikelyTitle(query) || "Unknown Title",
+            authors: expected?.authors || "",
+            year: expectedYear || "",
+            journal: expectedJournal || "",
+            url: `https://doi.org/${queryDOI}`,
+            doi: queryDOI,
+            score: 0,
+            source: 'NotFound',
+            matchConfidence: 0, // This will make it a Partial Match (Warning)
+            titleMatchScore: 0,
+            authorMatchScore: 0,
+            journalMatchScore: 0,
+            issues: [invalidDoiIssue]
+        };
     }
 
     return {
