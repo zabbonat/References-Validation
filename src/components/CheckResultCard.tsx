@@ -82,10 +82,15 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                     <CheckCircle size={16} />
                                     <span className="text-xs font-bold">Verified ({result.matchConfidence}%)</span>
                                 </div>
-                            ) : (
+                            ) : result.matchConfidence > 50 ? (
                                 <div className="flex items-center text-yellow-600 space-x-1">
                                     <XCircle size={16} />
                                     <span className="text-xs font-bold">Partial Match ({result.matchConfidence}%)</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center text-orange-600 space-x-1">
+                                    <AlertTriangle size={16} />
+                                    <span className="text-xs font-bold">Mismatch / Error</span>
                                 </div>
                             )
                         ) : (

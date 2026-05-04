@@ -81,10 +81,18 @@ const StatusBadge: React.FC<{ result: CheckResult }> = ({ result }) => {
             </span>
         );
     }
+    if (result.matchConfidence > 50) {
+        return (
+            <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">
+                <AlertTriangle size={12} />
+                <span>Partial Match ({result.matchConfidence}%)</span>
+            </span>
+        );
+    }
     return (
-        <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">
+        <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
             <AlertTriangle size={12} />
-            <span>Partial Match ({result.matchConfidence}%)</span>
+            <span>Mismatch / Error</span>
         </span>
     );
 };
