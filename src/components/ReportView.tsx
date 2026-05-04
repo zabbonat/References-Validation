@@ -107,11 +107,12 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
     const results = useMemo(() => items.filter(i => i.result), [items]);
     const stats = useMemo(() => {
         const verified = results.filter(r => r.result!.exists && r.result!.matchConfidence > 80).length;
-        const partial = results.filter(r => r.result!.exists && r.result!.matchConfidence <= 80).length;
+        const partial = results.filter(r => r.result!.exists && r.result!.matchConfidence > 50 && r.result!.matchConfidence <= 80).length;
+        const mismatch = results.filter(r => r.result!.exists && r.result!.matchConfidence <= 50).length;
         const notFound = results.filter(r => !r.result!.exists).length;
         const withIssues = results.filter(r => r.result!.issues.length > 0).length;
         const retracted = results.filter(r => r.result!.retracted).length;
-        return { verified, partial, notFound, withIssues, retracted, total: results.length };
+        return { verified, partial, mismatch, notFound, withIssues, retracted, total: results.length };
     }, [results]);
 
     const filteredItems = useMemo(() => {
@@ -120,7 +121,8 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
             if (!r.result) return true;
             switch (filter) {
                 case 'verified': return r.result.exists && r.result.matchConfidence > 80;
-                case 'partial': return r.result.exists && r.result.matchConfidence <= 80;
+                case 'partial': return r.result.exists && r.result.matchConfidence > 50 && r.result.matchConfidence <= 80;
+                case 'mismatch': return r.result.exists && r.result.matchConfidence <= 50;
                 case 'notfound': return !r.result.exists;
                 case 'issues': return r.result.issues.length > 0;
                 default: return true;
@@ -241,7 +243,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                     {/* Filter bar (hidden when printing) */}
                     <div className="flex items-center space-x-2 mb-4 print:hidden">
                         <Filter size={14} className="text-gray-400" />
-                        {(['all', 'verified', 'partial', 'notfound', 'issues'] as FilterType[]).map(f => (
+                        {(['all', 'verified', 'partial', 'mismatch', 'notfound', 'issues'] as FilterType[]).map(f => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
@@ -254,6 +256,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 {f === 'all' ? `All (${items.length})` :
                                  f === 'verified' ? `Verified (${stats.verified})` :
                                  f === 'partial' ? `Partial (${stats.partial})` :
+                                 f === 'mismatch' ? `Mismatch (${stats.mismatch})` :
                                  f === 'notfound' ? `Not Found (${stats.notFound})` :
                                  `Issues (${stats.withIssues})`}
                             </button>

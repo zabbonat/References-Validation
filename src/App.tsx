@@ -68,7 +68,7 @@ const cleanLatexInput = (text: string): string => {
     .join('\n');
 };
 
-type FilterType = 'all' | 'verified' | 'partial' | 'notfound' | 'issues';
+type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'notfound' | 'issues';
 
 interface BatchItem {
   ref: string;
@@ -229,11 +229,12 @@ function App() {
     if (!allBatchDone) return null;
     const results = batchResults.filter(r => r.result);
     const verified = results.filter(r => r.result!.exists && r.result!.matchConfidence > 80).length;
-    const partial = results.filter(r => r.result!.exists && r.result!.matchConfidence <= 80).length;
+    const partial = results.filter(r => r.result!.exists && r.result!.matchConfidence > 50 && r.result!.matchConfidence <= 80).length;
+    const mismatch = results.filter(r => r.result!.exists && r.result!.matchConfidence <= 50).length;
     const notFound = results.filter(r => !r.result!.exists).length;
     const withIssues = results.filter(r => r.result!.issues.length > 0).length;
     const retracted = results.filter(r => r.result!.retracted).length;
-    return { verified, partial, notFound, withIssues, retracted, total: results.length };
+    return { verified, partial, mismatch, notFound, withIssues, retracted, total: results.length };
   }, [allBatchDone, batchResults]);
 
   // Filter batch results
@@ -243,7 +244,8 @@ function App() {
       if (!r.result) return true; // show loading items
       switch (filter) {
         case 'verified': return r.result.exists && r.result.matchConfidence > 80;
-        case 'partial': return r.result.exists && r.result.matchConfidence <= 80;
+        case 'partial': return r.result.exists && r.result.matchConfidence > 50 && r.result.matchConfidence <= 80;
+        case 'mismatch': return r.result.exists && r.result.matchConfidence <= 50;
         case 'notfound': return !r.result.exists;
         case 'issues': return r.result.issues.length > 0;
         default: return true;
@@ -371,6 +373,11 @@ function App() {
                   <span>⚠ {stats.partial} Partial</span>
                 </span>
               )}
+              {stats.mismatch > 0 && (
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full font-semibold">
+                  <span>⚠ {stats.mismatch} Mismatch</span>
+                </span>
+              )}
               {stats.notFound > 0 && (
                 <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full font-semibold">
                   <span>✗ {stats.notFound} Not Found</span>
@@ -394,7 +401,7 @@ function App() {
           {allBatchDone && (
             <div className="flex items-center space-x-2">
               <Filter size={14} className="text-gray-400" />
-              {(['all', 'verified', 'partial', 'notfound', 'issues'] as FilterType[]).map(f => (
+              {(['all', 'verified', 'partial', 'mismatch', 'notfound', 'issues'] as FilterType[]).map(f => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -407,6 +414,7 @@ function App() {
                   {f === 'all' ? `All (${batchResults.length})` :
                    f === 'verified' ? `Verified (${stats?.verified || 0})` :
                    f === 'partial' ? `Partial (${stats?.partial || 0})` :
+                   f === 'mismatch' ? `Mismatch (${stats?.mismatch || 0})` :
                    f === 'notfound' ? `Not Found (${stats?.notFound || 0})` :
                    `Issues (${stats?.withIssues || 0})`}
                 </button>
