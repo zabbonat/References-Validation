@@ -546,7 +546,7 @@ function App() {
               Paste Reference(s)
             </label>
             <textarea
-              className="w-full h-64 p-3 border dark:border-slate-600 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none text-sm font-mono"
+              className="w-full h-64 p-3 border border-slate-300 dark:border-slate-500 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y text-sm font-mono"
               placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
 
 Example BibTeX:
@@ -566,7 +566,7 @@ Or Numbered/Plain text:
               <button
                 onClick={() => handleQuickCheck(input)}
                 disabled={loadingQuick || !input}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-500 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-500 border border-blue-700 dark:border-blue-400 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
               >
                 <Search size={18} />
                 <span>{loadingQuick ? 'Verifying...' : 'Quick Check'}</span>
@@ -574,7 +574,7 @@ Or Numbered/Plain text:
               <button
                 onClick={() => handleBatchCheck()}
                 disabled={!input || batchResults.some(r => r.loading)}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-600 dark:hover:bg-purple-500 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-600 dark:hover:bg-purple-500 border border-purple-700 dark:border-purple-400 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
               >
                 <ClipboardList size={18} />
                 <span>Batch Check</span>
