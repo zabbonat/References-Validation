@@ -574,9 +574,14 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                     // Check 1: Are real authors present?
                     const authorsFound = realAuthorFamilies.filter(author => normExpected.includes(author));
+                    const hasEtAlBatch = /\bet\s+al\.?|and\s+others\b/i.test(expected.authors);
 
                     if (authorsFound.length > 0) {
-                        authorSim = Math.min(100, Math.round((authorsFound.length / realAuthorFamilies.length) * 100));
+                        if (hasEtAlBatch) {
+                            authorSim = 100;
+                        } else {
+                            authorSim = Math.min(100, Math.round((authorsFound.length / realAuthorFamilies.length) * 100));
+                        }
                     } else {
                         // Fallback to strict similarity if containment fails
                         authorSim = calculateSimilarity(expected.authors, resultAuthors);
@@ -596,7 +601,10 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                         const matchesGiven = realAuthorGivens.some(given => firstLetterMatches(expAuth, given));
 
                         if (!matchesFamily && !matchesGiven) {
-                            extraAuthors.push(expAuth);
+                            // Don't flag "et al" or "others" as a fake author
+                            if (!expAuth.toLowerCase().includes('et al') && !expAuth.toLowerCase().includes('others') && !expAuth.toLowerCase().includes('al.')) {
+                                extraAuthors.push(expAuth);
+                            }
                         }
                     }
 
@@ -679,6 +687,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 // Free text validation (Quick Check)
                 // Use the full original text for validation (handles retry with extracted title)
                 const nValidation = normalize(validationQuery);
+                const hasEtAl = /\bet\s+al\.?/i.test(validationQuery);
 
                 // ===== 1. TITLE =====
                 if (titleSim < 95 && nValidation.includes(nResultTitle)) {
@@ -692,7 +701,12 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 if (authorsFound.length === realAuthorFamilies.length) {
                     authorSim = 100;
                 } else if (authorsFound.length > 0) {
-                    authorSim = Math.round((authorsFound.length / realAuthorFamilies.length) * 100);
+                    if (hasEtAl) {
+                        // If they used et al., and found at least one author (likely the first), don't penalize
+                        authorSim = 100;
+                    } else {
+                        authorSim = Math.round((authorsFound.length / realAuthorFamilies.length) * 100);
+                    }
                     if (authorsMissing.length > 0 && titleSim > 70) {
                         // Don't flag missing authors if user just truncated (et al)
                     }
@@ -792,23 +806,9 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     }
                 }
 
-                // ===== CHECK "et al." USAGE (APA 7th: list all authors if < 15) =====
-                const hasEtAl = /\bet\s+al\.?/i.test(validationQuery);
-                if (hasEtAl && realAuthorFamilies.length > 0 && realAuthorFamilies.length < 15) {
-                    // Find which real authors are missing from the user's input
-                    const missingAuthors = (item.author || [])
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        .filter((a: any) => {
-                            const family = normalize(a.family || '');
-                            return family.length > 2 && !nValidation.includes(family);
-                        })
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        .map((a: any) => `${a.family}${a.given ? ', ' + a.given : ''}`);
-
-                    if (missingAuthors.length > 0) {
-                        issues.push(`Incorrect citation style: "et al." used but paper has only ${realAuthorFamilies.length} authors (APA 7th: list all if < 15). Missing: ${missingAuthors.join('; ')}`);
-                        authorSim -= 5;
-                    }
+                // ===== CHECK "et al." USAGE =====
+                if (hasEtAl) {
+                    issues.push(`Note: You used 'et al.', please verify if your citation style allows it`);
                 }
 
                 // ===== 3. JOURNAL from CrossRef — PREPRINT AWARE =====
