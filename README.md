@@ -6,18 +6,22 @@
 ## 🚀 Features
 - **Quick Verification**: Verification of single references via text selection or clipboard.
 - **Batch Processing**: Paste a list of BibTeX entries or plain text/numbered citations to verify them all at once. Includes a progress bar and summary statistics.
+- **File Upload**: Upload references directly from txt/bib/docx files without manually copying or pasting.
 - **Advanced Validation Logic**:
   - Detects partial matches (e.g., correct title but wrong author or year).
   - Validates DOIs: explicitly flags **Mismatch/Error** if the provided DOI points to an unrelated paper.
   - Handles "First Name Last Name" vs "Last Name First Name" variations.
   - Penalizes scores for missing authors in the query.
+  - Retraction Check: Automatically alerts if an article has been retracted or withdrawn based on CrossRef and OpenAlex data.
 - **Smart Filtering & Reporting**:
   - Dynamic filter bar (All, Verified, Partial, Mismatch, Not Found, Issues) to quickly isolate problematic references in batch reports.
+- **Bibliometric Data**:
+  - Citation Counts: Displays the number of citations received by each validated paper to gauge its impact.
 - **Manual Verification Fallbacks**:
   - Automatically strips malformed DOIs/URLs before searching on Google Scholar to ensure robust manual verification.
-- **Output Formats**:
-  - **APA Style**: Get the correct APA citation instantly.
-  - **BibTeX**: Generates a valid BibTeX entry for the *found* paper.
+- **Output Formats & In-line Editing**:
+  - APA, MLA, ISO 690, and BibTeX: Get the correct citations instantly.
+  - In-line Editing: Directly edit the generated reference formats within the result card before copying or downloading.
 
 ## 🛠 **Run Locally**
 
