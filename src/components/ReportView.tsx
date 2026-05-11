@@ -167,7 +167,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                     <div className="flex items-center space-x-2">
                         <button
                             onClick={handleCopyAllBib}
-                            className="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white dark:bg-slate-500/20 dark:text-slate-300 dark:hover:bg-slate-500/30 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                         >
                             {copyAllSuccess ? <Check size={14} /> : <Copy size={14} />}
                             <span>{copyAllSuccess ? 'Copied!' : 'Copy All .bib'}</span>
@@ -177,7 +177,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 const allResults = items.map(i => i.result).filter((r): r is CheckResult => !!r);
                                 downloadBibFile(generateBibFileContent(allResults), 'report_references.bib');
                             }}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                         >
                             <Download size={14} />
                             <span>Download .bib</span>
@@ -194,7 +194,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                         </button>
                         <button
                             onClick={handleExportExcel}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                             title="Export to Excel (.xlsx)"
                         >
                             <FileSpreadsheet size={14} />
@@ -210,14 +210,14 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                         </button>
                         <button
                             onClick={handlePrint}
-                            className="px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            className="px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white dark:bg-slate-500/10 dark:text-slate-400 dark:hover:bg-slate-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                         >
                             <Printer size={14} />
                             <span>Print</span>
                         </button>
                         <button
                             onClick={onBack}
-                            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:text-slate-300/90 font-medium rounded-lg transition-colors flex items-center space-x-1.5"
+                            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700/50 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-lg transition-colors flex items-center space-x-1.5"
                         >
                             <ArrowLeft size={14} />
                             <span>Back</span>
