@@ -517,10 +517,15 @@ function App() {
   return (
     <div className="bg-slate-50 dark:bg-[#0B1120] min-h-screen flex flex-col font-sans">
       <header className="bg-white dark:bg-slate-800/80 border-b dark:border-slate-700/50 px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
-        <div className="flex items-center space-x-2">
+        <a 
+          href="https://github.com/zabbonat/References-Validation" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+        >
           <Search className="text-blue-600" size={20} />
           <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300/90">CheckIfExist</h1>
-        </div>
+        </a>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setDarkMode(!darkMode)}
