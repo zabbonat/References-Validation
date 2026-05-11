@@ -146,6 +146,45 @@ export const formatSemanticScholarAPA = (paper: SemanticScholarResult): string =
     return citation;
 };
 
+export const formatSemanticScholarMLA = (paper: SemanticScholarResult): string => {
+    let authorsStr = '';
+    const authors = paper.authors;
+    if (authors.length === 1) {
+        authorsStr = authors[0];
+    } else if (authors.length === 2) {
+        authorsStr = `${authors[0]} and ${authors[1]}`;
+    } else if (authors.length > 2) {
+        authorsStr = `${authors[0]}, et al`;
+    }
+    
+    if (authorsStr && !authorsStr.endsWith('.')) authorsStr += '.';
+    
+    const year = paper.year || 'n.d.';
+    const doi = paper.externalIds?.DOI ? `https://doi.org/${paper.externalIds.DOI}` : '';
+    
+    let citation = authorsStr ? `${authorsStr} ` : '';
+    citation += `"${paper.title}."`;
+    if (paper.venue) citation += ` ${paper.venue},`;
+    citation += ` ${year}.`;
+    if (doi) citation += ` ${doi}.`;
+    
+    return citation;
+};
+
+export const formatSemanticScholarISO690 = (paper: SemanticScholarResult): string => {
+    const authors = paper.authors.map(a => a.toUpperCase()).join('; ');
+    const year = paper.year || 'n.d.';
+    const doi = paper.externalIds?.DOI ? `https://doi.org/${paper.externalIds.DOI}` : '';
+    
+    let citation = authors ? `${authors}. ` : '';
+    citation += `${paper.title}.`;
+    if (paper.venue) citation += ` ${paper.venue},`;
+    citation += ` ${year}.`;
+    if (doi) citation += ` ${doi}`;
+    
+    return citation;
+};
+
 /**
  * Generate BibTeX from a Semantic Scholar result
  */

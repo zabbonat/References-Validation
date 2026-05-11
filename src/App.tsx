@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { parseBibTex } from './services/BibTexService';
 import { parsePlainTextRefs, detectDuplicates } from './services/PlainTextParser';
 import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
-import { generateBibFileContent, generateAPAFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
+import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
 import { ReportView } from './components/ReportView';
 import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon } from 'lucide-react';
@@ -384,6 +384,28 @@ function App() {
                   >
                     <Download size={14} />
                     <span>Download APA</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                      const mlaContent = generateMLAFileContent(results);
+                      downloadFile(mlaContent, 'corrected_references_MLA.txt');
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                  >
+                    <Download size={14} />
+                    <span>Download MLA</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                      const isoContent = generateISO690FileContent(results);
+                      downloadFile(isoContent, 'corrected_references_ISO690.txt');
+                    }}
+                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white dark:bg-sky-500/10 dark:text-sky-400 dark:hover:bg-sky-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                  >
+                    <Download size={14} />
+                    <span>Download ISO 690</span>
                   </button>
                 </>
               )}

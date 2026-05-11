@@ -28,6 +28,20 @@ export const generateAPAFileContent = (results: CheckResult[]): string => {
         .join('\n\n');
 };
 
+export const generateMLAFileContent = (results: CheckResult[]): string => {
+    return results
+        .filter(r => r.exists && r.mla)
+        .map((r, i) => `[${i + 1}] ${r.mla}`)
+        .join('\n\n');
+};
+
+export const generateISO690FileContent = (results: CheckResult[]): string => {
+    return results
+        .filter(r => r.exists && r.iso690)
+        .map((r, i) => `[${i + 1}] ${r.iso690}`)
+        .join('\n\n');
+};
+
 /**
  * Download content as a file
  */

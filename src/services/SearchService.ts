@@ -1,5 +1,5 @@
-import { searchSemanticScholar, formatSemanticScholarAPA, generateSemanticScholarBibTeX } from './SemanticScholarService';
-import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX } from './OpenAlexService';
+import { searchSemanticScholar, formatSemanticScholarAPA, generateSemanticScholarBibTeX, formatSemanticScholarMLA, formatSemanticScholarISO690 } from './SemanticScholarService';
+import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX, formatOpenAlexMLA, formatOpenAlexISO690 } from './OpenAlexService';
 
 export interface CheckResult {
     exists: boolean;
@@ -14,8 +14,12 @@ export interface CheckResult {
 
     // Formatted Output
     apa?: string;
+    mla?: string;
+    iso690?: string;
     bibtex?: string;
     correctedApa?: string; // APA from fallback source if issues found
+    correctedMla?: string;
+    correctedIso690?: string;
     correctedBibtex?: string; // BibTeX from fallback source
 
     // Validations
@@ -293,6 +297,56 @@ const formatAPA = (item: any): string => {
     if (doi) {
         citation += ` ${doi}`;
     }
+    return citation;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatMLA = (item: any): string => {
+    let authorsStr = '';
+    const authors = item.author || [];
+    if (authors.length === 1) {
+        authorsStr = `${authors[0].family}, ${authors[0].given || ''}`.trim();
+    } else if (authors.length === 2) {
+        authorsStr = `${authors[0].family}, ${authors[0].given || ''}, and ${authors[1].given || ''} ${authors[1].family}`.trim();
+    } else if (authors.length > 2) {
+        authorsStr = `${authors[0].family}, ${authors[0].given || ''}, et al`.trim();
+    }
+    
+    if (authorsStr && !authorsStr.endsWith('.')) authorsStr += '.';
+    
+    const title = item.title?.[0] || 'Untitled';
+    const journal = item['container-title']?.[0] || '';
+    const year = item.published?.['date-parts']?.[0]?.[0] || 'n.d.';
+    const doi = item.DOI ? `https://doi.org/${item.DOI}` : item.URL || '';
+    
+    let citation = authorsStr ? `${authorsStr} ` : '';
+    citation += `"${title}."`;
+    if (journal) citation += ` ${journal},`;
+    citation += ` ${year}.`;
+    if (doi) citation += ` ${doi}.`;
+    
+    return citation;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatISO690 = (item: any): string => {
+    const authors = (item.author || []).map((a: any) => {
+        const family = (a.family || '').toUpperCase();
+        const given = a.given ? `, ${a.given}` : '';
+        return `${family}${given}`;
+    }).join('; ');
+    
+    const year = item.published?.['date-parts']?.[0]?.[0] || 'n.d.';
+    const title = item.title?.[0] || 'Untitled';
+    const journal = item['container-title']?.[0] || '';
+    const doi = item.DOI ? `https://doi.org/${item.DOI}` : item.URL || '';
+    
+    let citation = authors ? `${authors}. ` : '';
+    citation += `${title}.`;
+    if (journal) citation += ` ${journal},`;
+    citation += ` ${year}.`;
+    if (doi) citation += ` ${doi}`;
+    
     return citation;
 };
 
@@ -891,6 +945,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 doi: item.DOI,
                 score: item.score,
                 apa: formatAPA(item),
+                mla: formatMLA(item),
+                iso690: formatISO690(item),
                 bibtex: generateBibTeX(item),
                 source: 'CrossRef',
                 matchConfidence: confidence,
@@ -1134,6 +1190,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                     url: ssResult.url,
                     doi: ssResult.externalIds?.DOI,
                     apa: formatSemanticScholarAPA(ssResult),
+                    mla: formatSemanticScholarMLA(ssResult),
+                    iso690: formatSemanticScholarISO690(ssResult),
                     bibtex: generateSemanticScholarBibTeX(ssResult),
                     source: 'SemanticScholar',
                     matchConfidence: Math.min(95, confidence),
@@ -1176,6 +1234,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                     url: oaResult.url,
                     doi: oaResult.doi || undefined,
                     apa: formatOpenAlexAPA(oaResult),
+                    mla: formatOpenAlexMLA(oaResult),
+                    iso690: formatOpenAlexISO690(oaResult),
                     bibtex: generateOpenAlexBibTeX(oaResult),
                     source: 'OpenAlex',
                     matchConfidence: Math.min(90, confidence),

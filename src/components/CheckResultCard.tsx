@@ -180,9 +180,15 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                 </div>
 
                                 {/* Action buttons */}
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-1.5 mt-2">
                                     {result.apa && (
                                         <CopyButton text={result.correctedApa || result.apa} label={result.correctedApa ? 'Copy APA (Corrected)' : 'Copy APA'} />
+                                    )}
+                                    {result.mla && (
+                                        <CopyButton text={result.correctedMla || result.mla} label={result.correctedMla ? 'Copy MLA (Corrected)' : 'Copy MLA'} />
+                                    )}
+                                    {result.iso690 && (
+                                        <CopyButton text={result.correctedIso690 || result.iso690} label={result.correctedIso690 ? 'Copy ISO 690 (Corrected)' : 'Copy ISO 690'} />
                                     )}
                                     {(result.correctedBibtex || result.bibtex) && (
                                         <CopyButton text={result.correctedBibtex || result.bibtex || ''} label={result.correctedBibtex ? 'Copy BibTeX (Corrected)' : 'Copy BibTeX'} />

@@ -145,6 +145,43 @@ export const formatOpenAlexAPA = (work: OpenAlexResult): string => {
     return citation;
 };
 
+export const formatOpenAlexMLA = (work: OpenAlexResult): string => {
+    let authorsStr = '';
+    const authors = work.authors;
+    if (authors.length === 1) {
+        authorsStr = authors[0];
+    } else if (authors.length === 2) {
+        authorsStr = `${authors[0]} and ${authors[1]}`;
+    } else if (authors.length > 2) {
+        authorsStr = `${authors[0]}, et al`;
+    }
+    
+    if (authorsStr && !authorsStr.endsWith('.')) authorsStr += '.';
+    
+    const year = work.year || 'n.d.';
+    
+    let citation = authorsStr ? `${authorsStr} ` : '';
+    citation += `"${work.title}."`;
+    if (work.journal) citation += ` ${work.journal},`;
+    citation += ` ${year}.`;
+    if (work.doi) citation += ` ${work.doi}.`;
+    
+    return citation;
+};
+
+export const formatOpenAlexISO690 = (work: OpenAlexResult): string => {
+    const authors = work.authors.map(a => a.toUpperCase()).join('; ');
+    const year = work.year || 'n.d.';
+    
+    let citation = authors ? `${authors}. ` : '';
+    citation += `${work.title}.`;
+    if (work.journal) citation += ` ${work.journal},`;
+    citation += ` ${year}.`;
+    if (work.doi) citation += ` ${work.doi}`;
+    
+    return citation;
+};
+
 /**
  * Generate BibTeX from an OpenAlex result
  */
