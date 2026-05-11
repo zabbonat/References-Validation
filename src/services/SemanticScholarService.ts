@@ -14,6 +14,8 @@ export interface SemanticScholarResult {
         DOI?: string;
     };
     url: string;
+    citationCount?: number;
+    isRetracted?: boolean;
 }
 
 interface SemanticScholarPaper {
@@ -26,6 +28,8 @@ interface SemanticScholarPaper {
         DOI?: string;
     };
     url: string;
+    citationCount?: number;
+    isRetracted?: boolean;
 }
 
 interface SemanticScholarResponse {
@@ -59,7 +63,7 @@ const titleSimilarity = (a: string, b: string): number => {
 export const searchSemanticScholar = async (title: string, expectedYear?: string): Promise<SemanticScholarResult | null> => {
     try {
         const encodedQuery = encodeURIComponent(title);
-        const fields = 'paperId,title,authors,year,venue,externalIds,url';
+        const fields = 'paperId,title,authors,year,venue,externalIds,url,citationCount,isRetracted';
 
         const response = await fetch(
             `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodedQuery}&limit=5&fields=${fields}`,
@@ -109,7 +113,9 @@ export const searchSemanticScholar = async (title: string, expectedYear?: string
                 year: bestPaper.year,
                 venue: bestPaper.venue || '',
                 externalIds: bestPaper.externalIds,
-                url: bestPaper.url || `https://www.semanticscholar.org/paper/${bestPaper.paperId}`
+                url: bestPaper.url || `https://www.semanticscholar.org/paper/${bestPaper.paperId}`,
+                citationCount: bestPaper.citationCount,
+                isRetracted: bestPaper.isRetracted || bestPaper.title.toLowerCase().includes('retract') || bestPaper.title.toLowerCase().includes('withdraw')
             };
         }
 

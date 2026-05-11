@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { parseBibTex } from './services/BibTexService';
 import { parsePlainTextRefs, detectDuplicates } from './services/PlainTextParser';
 import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
 import { ReportView } from './components/ReportView';
-import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon, Upload } from 'lucide-react';
 
 const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
 
@@ -94,6 +94,7 @@ function App() {
 
   // Unified input
   const [input, setInput] = useState(session?.input || '');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Quick Check State
   const [quickResult, setQuickResult] = useState<CheckResult | null>(null);
@@ -134,6 +135,36 @@ function App() {
       showReport
     }));
   }, [input, batchResults, showBatchView, filter, batchProgress, showReport]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    
+    try {
+      let text = '';
+      if (extension === 'docx') {
+        // @ts-ignore
+        const mammoth = await import('mammoth/mammoth.browser');
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        text = await file.text();
+      }
+      
+      // If we already have input, append it, otherwise replace it
+      setInput((prev: string) => prev ? prev + '\n\n' + text : text);
+      
+    } catch (error) {
+      console.error("Error reading file:", error);
+      alert("Failed to read the file. Ensure it is a valid .txt, .bib, or .docx file.");
+    } finally {
+      // Reset input value so the same file can be uploaded again if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   async function handleQuickCheck(text: string) {
     if (!text) return;
@@ -522,6 +553,16 @@ function App() {
                 result={item.result} 
                 loading={item.loading}
                 duplicateOf={item.duplicateOf}
+                onUpdateResult={(updated) => {
+                  setBatchResults(prev => {
+                    const newResults = [...prev];
+                    const idx = newResults.findIndex(r => r.ref === item.ref);
+                    if (idx !== -1) {
+                      newResults[idx] = { ...newResults[idx], result: updated };
+                    }
+                    return newResults;
+                  });
+                }}
               />
             ))}
             {filteredBatchResults.length === 0 && allBatchDone && (
@@ -569,9 +610,26 @@ function App() {
         <div className="max-w-4xl mx-auto space-y-4">
           {/* Unified Input Card */}
           <div className="bg-white dark:bg-slate-800/80 p-5 rounded-xl shadow-sm border">
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
-              Paste Reference(s)
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+                Paste Reference(s)
+              </label>
+              
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload} 
+                accept=".txt,.bib,.docx" 
+                className="hidden" 
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center space-x-1.5 text-xs font-medium px-2.5 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded transition-colors"
+              >
+                <Upload size={14} />
+                <span>Upload References</span>
+              </button>
+            </div>
             <textarea
               className="w-full h-64 p-3 border border-slate-300 dark:border-slate-500 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y text-sm font-mono"
               placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
@@ -643,7 +701,12 @@ Or Numbered/Plain text:
           {/* Quick Check Result - stays on same page */}
           {(quickResult || loadingQuick) && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <CheckResultCard reference={input} result={quickResult || undefined} loading={loadingQuick} />
+              <CheckResultCard 
+                reference={input} 
+                result={quickResult || undefined} 
+                loading={loadingQuick}
+                onUpdateResult={(updated) => setQuickResult(updated)} 
+              />
             </div>
           )}
         </div>

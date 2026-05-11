@@ -12,6 +12,8 @@ export interface OpenAlexResult {
     journal: string;
     doi: string | null;
     url: string;
+    citations?: number;
+    isRetracted?: boolean;
 }
 
 interface OpenAlexAuthorship {
@@ -31,6 +33,8 @@ interface OpenAlexWork {
         };
     };
     doi: string | null;
+    cited_by_count?: number;
+    is_retracted?: boolean;
 }
 
 interface OpenAlexResponse {
@@ -109,7 +113,9 @@ export const searchOpenAlex = async (title: string, expectedYear?: string): Prom
                 year: bestWork.publication_year,
                 journal: bestWork.primary_location?.source?.display_name || '',
                 doi: bestWork.doi,
-                url: bestWork.doi || bestWork.id
+                url: bestWork.doi || bestWork.id,
+                citations: bestWork.cited_by_count,
+                isRetracted: bestWork.is_retracted || bestWork.title.toLowerCase().includes('retract') || bestWork.title.toLowerCase().includes('withdraw')
             };
         }
 

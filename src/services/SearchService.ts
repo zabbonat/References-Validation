@@ -29,6 +29,9 @@ export interface CheckResult {
     journalMatchScore: number;
     issues: string[]; // e.g., "Authors Mismatch"
 
+    // Enrichment
+    citations?: number;
+
     source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'NotFound';
     fallbackSource?: 'SemanticScholar' | 'OpenAlex'; // Source of correction
 }
@@ -935,6 +938,13 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 };
             }
 
+            const isRetracted = nResultTitle.includes('retract') || nResultTitle.includes('withdraw') || 
+                (item['update-to'] && Array.isArray(item['update-to']) && item['update-to'].some((u: any) => u.type === 'retraction'));
+            
+            if (isRetracted && !issues.some(i => i.includes('RETRACTED'))) {
+                issues.push('🚨 WARNING: This article has been RETRACTED or WITHDRAWN.');
+            }
+
             return {
                 exists: true,
                 title: resultTitle,
@@ -944,6 +954,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 url: item.URL,
                 doi: item.DOI,
                 score: item.score,
+                citations: item['is-referenced-by-count'] || 0,
+                retracted: isRetracted,
                 apa: formatAPA(item),
                 mla: formatMLA(item),
                 iso690: formatISO690(item),
@@ -1189,6 +1201,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                     journal: ssResult.venue,
                     url: ssResult.url,
                     doi: ssResult.externalIds?.DOI,
+                    citations: ssResult.citationCount,
+                    retracted: ssResult.isRetracted,
                     apa: formatSemanticScholarAPA(ssResult),
                     mla: formatSemanticScholarMLA(ssResult),
                     iso690: formatSemanticScholarISO690(ssResult),
@@ -1233,6 +1247,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
                     journal: oaResult.journal,
                     url: oaResult.url,
                     doi: oaResult.doi || undefined,
+                    citations: oaResult.citations,
+                    retracted: oaResult.isRetracted,
                     apa: formatOpenAlexAPA(oaResult),
                     mla: formatOpenAlexMLA(oaResult),
                     iso690: formatOpenAlexISO690(oaResult),

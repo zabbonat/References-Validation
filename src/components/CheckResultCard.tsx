@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import type { CheckResult } from '../services/SearchService';
-import { CheckCircle, XCircle, ExternalLink, Search, Copy, Check, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, ExternalLink, Search, Copy, Check, AlertTriangle, Edit2 } from 'lucide-react';
 
 interface Props {
     reference: string;
     result?: CheckResult;
     loading?: boolean;
     duplicateOf?: number; // ref number of the duplicate
+    onUpdateResult?: (updated: CheckResult) => void;
 }
 
 const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckResult['fallbackSource'] }> = ({ source, fallback }) => {
@@ -72,7 +73,9 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
     );
 };
 
-export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf }) => {
+export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf, onUpdateResult }) => {
+    const [activeTab, setActiveTab] = useState<'apa'|'mla'|'iso690'|'bibtex'>('apa');
+
     return (
         <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : ''}`}>
             {/* Header bar with status + source */}
@@ -101,14 +104,6 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                 <XCircle size={16} />
                                 <span className="text-xs font-bold">Not Found</span>
                             </div>
-                        )}
-
-                        {/* Retraction badge */}
-                        {result.retracted && (
-                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-red-100 dark:bg-rose-500/15 text-red-700 dark:text-rose-400 text-xs font-bold rounded-full">
-                                <AlertTriangle size={12} />
-                                <span>RETRACTED</span>
-                            </span>
                         )}
 
                         {/* Duplicate badge */}
@@ -157,26 +152,60 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                         </div>
 
                         {result.exists ? (
-                            <div className="space-y-2">
-                                {/* Corrected APA */}
-                                {result.correctedApa && (
-                                    <div className="p-2 bg-green-50 dark:bg-emerald-500/10 border border-green-200 dark:border-emerald-500/20 rounded text-sm text-slate-800 dark:text-slate-300/90">
-                                        <span className="font-bold text-xs text-green-600 dark:text-emerald-400 block mb-1">✓ Corrected (APA):</span>
-                                        {result.correctedApa}
+                            <div className="space-y-2 flex flex-col h-full">
+                                {result.retracted && (
+                                    <div className="p-3 mb-2 bg-red-600 text-white font-bold rounded-md flex items-center space-x-2 shadow-sm border border-red-700">
+                                        <AlertTriangle size={20} className="animate-pulse" />
+                                        <span className="text-sm uppercase tracking-wider">Warning: This Article Has Been Retracted</span>
                                     </div>
                                 )}
-
-                                {/* Original APA */}
-                                {result.apa && (
-                                    <div className="p-2 bg-white dark:bg-slate-800/80 border rounded text-sm text-slate-800 dark:text-slate-300/90">
-                                        <span className="font-bold text-xs text-blue-600 block mb-1">APA Style:</span>
-                                        {result.apa}
+                                {/* Editable format tabs */}
+                                <div className="mt-3">
+                                    <div className="flex border-b border-slate-200 dark:border-slate-700/50 mb-2">
+                                        {(['apa', 'mla', 'iso690', 'bibtex'] as const).map(tab => (
+                                            <button
+                                                key={tab}
+                                                onClick={() => setActiveTab(tab)}
+                                                className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                                            >
+                                                {tab === 'iso690' ? 'ISO 690' : tab.toUpperCase()}
+                                            </button>
+                                        ))}
                                     </div>
-                                )}
+                                    <div className="relative">
+                                        <textarea
+                                            value={
+                                                activeTab === 'apa' ? (result.correctedApa || result.apa || '') :
+                                                activeTab === 'mla' ? (result.correctedMla || result.mla || '') :
+                                                activeTab === 'iso690' ? (result.correctedIso690 || result.iso690 || '') :
+                                                (result.correctedBibtex || result.bibtex || '')
+                                            }
+                                            onChange={(e) => {
+                                                if (!onUpdateResult) return;
+                                                const val = e.target.value;
+                                                const updated = { ...result };
+                                                if (activeTab === 'apa') updated.correctedApa = val;
+                                                else if (activeTab === 'mla') updated.correctedMla = val;
+                                                else if (activeTab === 'iso690') updated.correctedIso690 = val;
+                                                else if (activeTab === 'bibtex') updated.correctedBibtex = val;
+                                                onUpdateResult(updated);
+                                            }}
+                                            rows={4}
+                                            className="w-full p-2.5 text-sm bg-white dark:bg-[#0B1120] text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y transition-colors font-mono"
+                                            placeholder={`Edit ${activeTab.toUpperCase()} format manually...`}
+                                        />
+                                        <Edit2 size={12} className="absolute top-2 right-2 text-slate-400 pointer-events-none opacity-50" />
+                                    </div>
+                                </div>
 
-                                <div className="flex space-x-2 text-xs text-slate-500 dark:text-slate-400">
+                                <div className="flex space-x-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
                                     {result.journal && <span>{result.journal}</span>}
                                     {result.year && <span>({result.year})</span>}
+                                    {result.citations !== undefined && (
+                                        <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
+                                            {result.citations} Citations
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* Action buttons */}
