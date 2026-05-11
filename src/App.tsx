@@ -591,7 +591,6 @@ Or Numbered/Plain text:
               <button
                 onClick={() => {
                   setInput(QUICK_CHECK_EXAMPLE);
-                  handleQuickCheck(QUICK_CHECK_EXAMPLE);
                 }}
                 disabled={loadingQuick}
                 className="text-xs text-blue-500 hover:text-blue-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
@@ -602,7 +601,6 @@ Or Numbered/Plain text:
               <button
                 onClick={() => {
                   setInput(BATCH_CHECK_EXAMPLE);
-                  handleBatchCheck(BATCH_CHECK_EXAMPLE);
                 }}
                 disabled={batchResults.some(r => r.loading)}
                 className="text-xs text-purple-500 hover:text-purple-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
