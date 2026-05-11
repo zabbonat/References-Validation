@@ -544,14 +544,14 @@ function App() {
       </header>
 
       <main className="flex-1 p-4 overflow-auto">
-        <div className="max-w-2xl mx-auto space-y-4">
+        <div className="max-w-4xl mx-auto space-y-4">
           {/* Unified Input Card */}
           <div className="bg-white dark:bg-slate-800/80 p-5 rounded-xl shadow-sm border">
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
               Paste Reference(s)
             </label>
             <textarea
-              className="w-full h-64 p-3 border border-slate-300 dark:border-slate-500 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize text-sm font-mono"
+              className="w-full h-64 p-3 border border-slate-300 dark:border-slate-500 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y text-sm font-mono"
               placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
 
 Example BibTeX:
