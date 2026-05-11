@@ -36,6 +36,15 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   author={He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
   journal={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
   year={2016}
+}
+
+% NOTE: This is a highly cited biology/medical paper that was RETRACTED
+@article{obokata2014stap,
+  title={Stimulus-triggered fate conversion of somatic cells into pluripotency},
+  author={Obokata, Haruko and Wakayama, Teruhiko and Sasai, Yoshiki and Kojima, Koji and Vacanti, Martin P and Niwa, Hitoshi and Yamato, Masayuki and Vacanti, Charles A},
+  journal={Nature},
+  volume={505},
+  year={2014}
 }`;
 
 // Electron IPC (mocked for web if not present)

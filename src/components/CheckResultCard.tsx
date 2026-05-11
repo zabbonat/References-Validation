@@ -75,6 +75,7 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
 
 export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf, onUpdateResult }) => {
     const [activeTab, setActiveTab] = useState<'apa'|'mla'|'iso690'|'bibtex'>('apa');
+    const [isEditing, setIsEditing] = useState(false);
 
     return (
         <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : ''}`}>
@@ -191,10 +192,25 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                                                 onUpdateResult(updated);
                                             }}
                                             rows={4}
-                                            className="w-full p-2.5 text-sm bg-white dark:bg-[#0B1120] text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y transition-colors font-mono"
-                                            placeholder={`Edit ${activeTab.toUpperCase()} format manually...`}
+                                            readOnly={!isEditing}
+                                            className={`w-full p-2.5 text-sm rounded-lg outline-none resize-y transition-colors font-mono pr-8 ${
+                                                isEditing 
+                                                ? 'bg-white dark:bg-[#0B1120] text-slate-800 dark:text-slate-200 border-2 border-blue-400 dark:border-blue-500/50 focus:ring-2 focus:ring-blue-500' 
+                                                : 'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 cursor-default'
+                                            }`}
+                                            placeholder={isEditing ? `Edit ${activeTab.toUpperCase()} format manually...` : ''}
                                         />
-                                        <Edit2 size={12} className="absolute top-2 right-2 text-slate-400 pointer-events-none opacity-50" />
+                                        <button
+                                            onClick={() => setIsEditing(!isEditing)}
+                                            className={`absolute top-2 right-2 p-1.5 rounded-md transition-colors ${
+                                                isEditing 
+                                                ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400' 
+                                                : 'bg-slate-200/50 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-700/50 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-300'
+                                            }`}
+                                            title={isEditing ? 'Finish Editing' : 'Edit Citation'}
+                                        >
+                                            <Edit2 size={12} />
+                                        </button>
                                     </div>
                                 </div>
 
