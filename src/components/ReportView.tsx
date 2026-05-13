@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { CheckResult } from '../services/SearchService';
-import { generateBibFileContent, generateAPAFileContent, downloadBibFile, downloadFile, copyToClipboard, downloadExcelFile } from '../services/BibExportService';
-import { CheckCircle, XCircle, AlertTriangle, ExternalLink, Search, Copy, Check, FileText, ArrowLeft, Download, Printer, Filter, FileSpreadsheet, Mail } from 'lucide-react';
+import { generateBibFileContent, generateAPAFileContent, generateRISFileContent, downloadBibFile, downloadFile, copyToClipboard, downloadExcelFile } from '../services/BibExportService';
+import { CheckCircle, XCircle, AlertTriangle, ExternalLink, Search, Copy, Check, FileText, ArrowLeft, Download, Printer, Filter, FileSpreadsheet, Mail, BookOpen, Calendar } from 'lucide-react';
 
 type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'notfound' | 'issues';
 
@@ -115,6 +115,29 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
         return { verified, partial, mismatch, notFound, withIssues, retracted, total: results.length };
     }, [results]);
 
+    // Temporal distribution stats
+    const temporalStats = useMemo(() => {
+        const years = results
+            .filter(r => r.result?.exists && r.result?.year)
+            .map(r => parseInt(r.result!.year!))
+            .filter(y => !isNaN(y) && y > 1800 && y < 2100);
+        
+        if (years.length === 0) return null;
+
+        const oldest = Math.min(...years);
+        const newest = Math.max(...years);
+        const avgYear = Math.round(years.reduce((a, b) => a + b, 0) / years.length);
+        
+        // Citation stats
+        const citations = results
+            .filter(r => r.result?.exists && r.result?.citations !== undefined)
+            .map(r => r.result!.citations!);
+        const totalCitations = citations.reduce((a, b) => a + b, 0);
+        const avgCitations = citations.length > 0 ? Math.round(totalCitations / citations.length) : null;
+
+        return { oldest, newest, avgYear, span: newest - oldest, totalCitations, avgCitations, yearCount: years.length };
+    }, [results]);
+
     const filteredItems = useMemo(() => {
         if (filter === 'all') return items;
         return items.filter(r => {
@@ -209,6 +232,18 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                             <span className="hidden sm:inline">Email</span>
                         </button>
                         <button
+                            onClick={() => {
+                                const allResults = items.map(i => i.result).filter((r): r is CheckResult => !!r);
+                                const risContent = generateRISFileContent(allResults);
+                                downloadFile(risContent, 'references_zotero.ris');
+                            }}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                            title="Download RIS (Zotero, Mendeley, EndNote)"
+                        >
+                            <BookOpen size={14} />
+                            <span className="hidden sm:inline">Zotero/RIS</span>
+                        </button>
+                        <button
                             onClick={handlePrint}
                             className="px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white dark:bg-slate-500/10 dark:text-slate-400 dark:hover:bg-slate-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
                         >
@@ -263,6 +298,36 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                             <div className="mt-3 px-3 py-2 bg-red-100 dark:bg-rose-500/15 border border-red-300 rounded-lg flex items-center space-x-2">
                                 <AlertTriangle size={16} className="text-red-700 dark:text-rose-400" />
                                 <span className="text-sm font-bold text-red-700 dark:text-rose-400">⚠ {stats.retracted} retracted paper(s) detected!</span>
+                            </div>
+                        )}
+
+                        {/* Temporal Distribution */}
+                        {temporalStats && (
+                            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700/50">
+                                <div className="flex items-center space-x-2 mb-2">
+                                    <Calendar size={14} className="text-slate-400" />
+                                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Temporal Distribution</span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg px-3 py-2 text-center">
+                                        <div className="text-lg font-bold text-blue-700 dark:text-blue-400">{temporalStats.oldest}</div>
+                                        <div className="text-xs text-blue-600 dark:text-blue-400/80 font-medium">Oldest</div>
+                                    </div>
+                                    <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg px-3 py-2 text-center">
+                                        <div className="text-lg font-bold text-blue-700 dark:text-blue-400">{temporalStats.newest}</div>
+                                        <div className="text-xs text-blue-600 dark:text-blue-400/80 font-medium">Newest</div>
+                                    </div>
+                                    <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-lg px-3 py-2 text-center">
+                                        <div className="text-lg font-bold text-indigo-700 dark:text-indigo-400">{temporalStats.span} yrs</div>
+                                        <div className="text-xs text-indigo-600 dark:text-indigo-400/80 font-medium">Span</div>
+                                    </div>
+                                    {temporalStats.avgCitations !== null && (
+                                        <div className="bg-purple-50 dark:bg-purple-500/10 rounded-lg px-3 py-2 text-center">
+                                            <div className="text-lg font-bold text-purple-700 dark:text-purple-400">{temporalStats.avgCitations}</div>
+                                            <div className="text-xs text-purple-600 dark:text-purple-400/80 font-medium">Avg Citations</div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

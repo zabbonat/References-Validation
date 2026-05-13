@@ -6,6 +6,11 @@
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- PWA -->
+  <link rel="manifest" href="/References-Validation/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="apple-touch-icon" href="/References-Validation/icons/icon-192.png" />
+
   <!-- SEO Meta Tags -->
   <title>CheckIfExist - Academic Reference Validation Tool</title>
   <meta name="description"
@@ -93,6 +98,16 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+  <script>
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/References-Validation/sw.js')
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
 </body>
 
 </html>

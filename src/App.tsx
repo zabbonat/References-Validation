@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { parseBibTex } from './services/BibTexService';
 import { parsePlainTextRefs, detectDuplicates } from './services/PlainTextParser';
 import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
-import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
+import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, generateRISFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
 import { ReportView } from './components/ReportView';
-import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon, Upload, X } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon, Upload, X, BookOpen } from 'lucide-react';
 
 const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
 
@@ -552,6 +552,18 @@ function App() {
                   >
                     <Download size={14} />
                     <span>Download ISO 690</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const results = batchResults.map(r => r.result).filter((r): r is CheckResult => !!r);
+                      const risContent = generateRISFileContent(results);
+                      downloadFile(risContent, 'references_zotero.ris');
+                    }}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 font-medium rounded-lg transition-colors flex items-center space-x-1.5 text-sm"
+                    title="Download RIS (Zotero, Mendeley, EndNote)"
+                  >
+                    <BookOpen size={14} />
+                    <span>Zotero/RIS</span>
                   </button>
                 </>
               )}

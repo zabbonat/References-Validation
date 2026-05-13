@@ -43,6 +43,42 @@ export const generateISO690FileContent = (results: CheckResult[]): string => {
 };
 
 /**
+ * Generate RIS format content (compatible with Zotero, Mendeley, EndNote)
+ * RIS is a standard tag-value format for bibliographic references
+ */
+export const generateRISFileContent = (results: CheckResult[]): string => {
+    return results
+        .filter(r => r.exists && r.title)
+        .map(r => {
+            const lines: string[] = [];
+            lines.push('TY  - JOUR');
+            if (r.title) lines.push(`TI  - ${r.title}`);
+            
+            // Parse authors from the APA string or authors field
+            if (r.authors) {
+                // Split authors by common separators: ", and ", " & ", "; ", ", "
+                const authorList = r.authors
+                    .replace(/\s*&\s*/g, ', ')
+                    .replace(/\s+and\s+/gi, ', ')
+                    .split(/;\s*|,\s*(?=[A-Z])/)
+                    .map(a => a.trim())
+                    .filter(a => a.length > 2 && !/^et\s+al/i.test(a));
+                for (const author of authorList) {
+                    lines.push(`AU  - ${author}`);
+                }
+            }
+            
+            if (r.year) lines.push(`PY  - ${r.year}`);
+            if (r.journal) lines.push(`JO  - ${r.journal}`);
+            if (r.doi) lines.push(`DO  - ${r.doi}`);
+            if (r.url) lines.push(`UR  - ${r.url}`);
+            lines.push('ER  - ');
+            return lines.join('\n');
+        })
+        .join('\n\n');
+};
+
+/**
  * Download content as a file
  */
 export const downloadFile = (content: string, filename: string, mimeType: string = 'text/plain;charset=utf-8'): void => {
