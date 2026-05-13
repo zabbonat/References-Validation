@@ -2,6 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Toast notification animation */
+@keyframes toast-slide-in {
+  from {
+    transform: translateY(-100%) translateX(-50%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) translateX(-50%);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.toast-enter {
+  animation: toast-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-exit {
+  animation: toast-fade-out 0.3s ease-out forwards;
+}
+
+/* Drag-drop overlay */
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  border: 3px dashed rgba(99, 102, 241, 0.6);
+  background: rgba(99, 102, 241, 0.08);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.dark .drop-overlay {
+  border-color: rgba(129, 140, 248, 0.5);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+/* Drop zone hint text pulse */
+@keyframes gentle-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.35; }
+}
+
+.drop-hint {
+  animation: gentle-pulse 3s ease-in-out infinite;
+}
+
 /* Print styles for the Report View */
 @media print {
   body {

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { parseBibTex } from './services/BibTexService';
 import { parsePlainTextRefs, detectDuplicates } from './services/PlainTextParser';
 import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
 import { ReportView } from './components/ReportView';
-import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon, Upload } from 'lucide-react';
+import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon, Upload, X } from 'lucide-react';
 
 const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
 
@@ -117,6 +117,17 @@ function App() {
   const [batchProgress, setBatchProgress] = useState(session?.batchProgress || { current: 0, total: 0 });
   const [showReport, setShowReport] = useState(session?.showReport || false);
 
+  // Drag & Drop State
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  // Toast Notification State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error'; visible: boolean } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Batch Cancellation
+  const batchCancelledRef = useRef(false);
+
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('checkifexist_theme') === 'dark' || 
@@ -175,6 +186,82 @@ function App() {
     }
   };
 
+  // Toast helper
+  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast({ message, type, visible: true });
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(prev => prev ? { ...prev, visible: false } : null);
+      setTimeout(() => setToast(null), 300);
+    }, 4000);
+  }, []);
+
+  // Drag & Drop handlers
+  const processDroppedFile = async (file: File) => {
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const allowed = ['txt', 'bib', 'docx'];
+    if (!extension || !allowed.includes(extension)) {
+      showToast('Unsupported file type. Use .txt, .bib, or .docx', 'error');
+      return;
+    }
+    try {
+      let text = '';
+      if (extension === 'docx') {
+        // @ts-ignore
+        const mammoth = await import('mammoth/mammoth.browser');
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        text = await file.text();
+      }
+      setInput((prev: string) => prev ? prev + '\n\n' + text : text);
+      showToast(`Loaded ${file.name} successfully!`, 'success');
+    } catch (error) {
+      console.error('Error reading dropped file:', error);
+      showToast('Failed to read the file.', 'error');
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processDroppedFile(files[0]);
+    }
+  };
+
+  const handleCancelBatch = () => {
+    batchCancelledRef.current = true;
+    showToast('Batch check cancelled.', 'info');
+  };
+
   async function handleQuickCheck(text: string) {
     if (!text) return;
     const cleanedText = cleanLatexInput(text);
@@ -217,6 +304,7 @@ function App() {
     setQuickResult(null);
     setShowBatchView(true);
     setFilter('all');
+    batchCancelledRef.current = false;
 
     const parsed = parseBibTex(cleanedInput);
 
@@ -238,6 +326,14 @@ function App() {
 
       const newResults = [...initialResults];
       for (let i = 0; i < parsed.length; i++) {
+        if (batchCancelledRef.current) {
+          for (let j = i; j < parsed.length; j++) {
+            newResults[j] = { ...newResults[j], loading: false };
+          }
+          setBatchResults([...newResults]);
+          setBatchProgress({ current: i, total: parsed.length });
+          break;
+        }
         if (i > 0) await new Promise(resolve => setTimeout(resolve, BATCH_REQUEST_DELAY));
 
         const p = parsed[i];
@@ -254,6 +350,7 @@ function App() {
         setBatchResults([...newResults]);
         setBatchProgress({ current: i + 1, total: parsed.length });
       }
+      if (!batchCancelledRef.current) showToast(`✓ Batch complete! ${parsed.length} references checked.`, 'success');
     } else {
       // Plain-text input — use smart parser
       const plainRefs = parsePlainTextRefs(cleanedInput);
@@ -278,6 +375,14 @@ function App() {
 
       const newResults = [...initialResults];
       for (let i = 0; i < plainRefs.length; i++) {
+        if (batchCancelledRef.current) {
+          for (let j = i; j < plainRefs.length; j++) {
+            newResults[j] = { ...newResults[j], loading: false };
+          }
+          setBatchResults([...newResults]);
+          setBatchProgress({ current: i, total: plainRefs.length });
+          break;
+        }
         if (i > 0) await new Promise(resolve => setTimeout(resolve, BATCH_REQUEST_DELAY));
         
         const pRef = plainRefs[i];
@@ -302,6 +407,7 @@ function App() {
         setBatchResults([...newResults]);
         setBatchProgress({ current: i + 1, total: plainRefs.length });
       }
+      if (!batchCancelledRef.current) showToast(`✓ Batch complete! ${plainRefs.length} references checked.`, 'success');
     }
   };
 
@@ -479,9 +585,18 @@ function App() {
           {/* Progress bar */}
           {!allBatchDone && batchProgress.total > 0 && (
             <div className="mb-2">
-              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 mb-1">
                 <span>Checking references...</span>
-                <span>{batchProgress.current} / {batchProgress.total} ({progressPct}%)</span>
+                <div className="flex items-center space-x-2">
+                  <span>{batchProgress.current} / {batchProgress.total} ({progressPct}%)</span>
+                  <button
+                    onClick={handleCancelBatch}
+                    className="px-2 py-0.5 bg-red-100 hover:bg-red-200 dark:bg-rose-500/15 dark:hover:bg-rose-500/25 text-red-700 dark:text-rose-400 rounded-md font-semibold transition-colors flex items-center space-x-1"
+                  >
+                    <X size={12} />
+                    <span>Cancel</span>
+                  </button>
+                </div>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2">
                 <div 
@@ -639,9 +754,25 @@ function App() {
                 <span>Upload References</span>
               </button>
             </div>
-            <textarea
-              className="w-full h-64 p-3 border border-slate-300 dark:border-slate-500 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y text-sm font-mono"
-              placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
+            <div 
+              className="relative"
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              {isDragging && (
+                <div className="drop-overlay">
+                  <div className="text-center">
+                    <Upload size={32} className="mx-auto mb-2 text-indigo-500 dark:text-indigo-400" />
+                    <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Drop it like it's hot 🔥</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">.txt, .bib, or .docx</p>
+                  </div>
+                </div>
+              )}
+              <textarea
+                className="w-full h-64 p-3 border border-slate-300 dark:border-slate-500 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y text-sm font-mono"
+                placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
 
 Example BibTeX:
 @article{key, title={...}, author={...}, year={2024}}
@@ -651,9 +782,15 @@ Smith, J. (2024). Title of article. Journal Name.
 
 Or Numbered/Plain text:
 [1] Author. Title. Journal, 2024, 10(2): 123-456.`}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-            />
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              {!input && !isDragging && (
+                <div className="absolute bottom-3 left-0 right-0 text-center pointer-events-none drop-hint">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 italic">or drop it like it's hot 🔥 (.txt, .bib, .docx)</p>
+                </div>
+              )}
+            </div>
 
             {/* Two buttons side by side */}
             <div className="mt-4 flex space-x-3">
@@ -749,6 +886,20 @@ Or Numbered/Plain text:
           MIT License © 2026 Diletta Abbonato
         </a>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-6 left-1/2 z-50 ${toast.visible ? 'toast-enter' : 'toast-exit'}`}>
+          <div className={`flex items-center space-x-2 px-4 py-3 rounded-xl shadow-lg border backdrop-blur-md text-sm font-medium ${
+            toast.type === 'success' ? 'bg-green-50/95 dark:bg-emerald-900/80 text-green-800 dark:text-emerald-300 border-green-200 dark:border-emerald-700/50' :
+            toast.type === 'error' ? 'bg-red-50/95 dark:bg-rose-900/80 text-red-800 dark:text-rose-300 border-red-200 dark:border-rose-700/50' :
+            'bg-blue-50/95 dark:bg-blue-900/80 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-700/50'
+          }`}>
+            <span>{toast.type === 'success' ? '✓' : toast.type === 'error' ? '✗' : 'ℹ'}</span>
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
