@@ -738,15 +738,25 @@ function App() {
   return (
     <div className="bg-slate-50 dark:bg-[#0B1120] min-h-screen flex flex-col font-sans">
       <header className="bg-white dark:bg-slate-800/80 border-b dark:border-slate-700/50 px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 w-full backdrop-blur-md bg-opacity-70">
-        <a 
-          href="https://github.com/zabbonat/References-Validation" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-        >
-          <Search className="text-blue-600" size={20} />
-          <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300/90">CheckIfExist</h1>
-        </a>
+        <div className="flex items-center space-x-6">
+          <a 
+            href="https://github.com/zabbonat/References-Validation" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+          >
+            <Search className="text-blue-600" size={20} />
+            <h1 className="font-bold text-lg text-slate-800 dark:text-slate-300/90">CheckIfExist</h1>
+          </a>
+          
+          <button
+            onClick={() => { window.location.hash = '#/pdf-checker'; }}
+            className="hidden sm:flex items-center space-x-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-sm group"
+          >
+            <FileText size={14} className="group-hover:-translate-y-0.5 transition-transform" />
+            <span>Upload & Check multiple papers?</span>
+          </button>
+        </div>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setDarkMode(!darkMode)}
@@ -869,20 +879,6 @@ Or Numbered/Plain text:
                 <span>Try Batch Check example</span>
               </button>
             </div>
-          </div>
-
-          {/* Upload Papers button */}
-          <div className="text-center px-4 mb-4">
-            <button
-              onClick={() => { window.location.hash = '#/pdf-checker'; }}
-              className="w-full max-w-md mx-auto flex items-center justify-center space-x-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium py-3.5 px-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 group"
-            >
-              <Upload size={20} className="group-hover:-translate-y-0.5 transition-transform" />
-              <div className="text-left">
-                <div className="text-sm font-bold">Upload Papers (PDF / DOCX)</div>
-                <div className="text-xs opacity-80">Extract & check references from your papers</div>
-              </div>
-            </button>
           </div>
 
           {/* Disclaimer */}
