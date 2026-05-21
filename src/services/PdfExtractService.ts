@@ -62,9 +62,9 @@ const END_SECTION_REGEX = buildEndSectionRegex();
 
 /**
  * Extract text from a PDF file using pdf.js
- * Only extracts text from the last N pages (default: 7) where references typically are
+ * Only extracts text from the last N pages (default: 50) where references typically are
  */
-export const extractTextFromPdf = async (file: File, lastNPages: number = 7): Promise<string> => {
+export const extractTextFromPdf = async (file: File, lastNPages: number = 50): Promise<string> => {
   // Dynamic import of pdf.js
   const pdfjsLib = await import('pdfjs-dist');
   
@@ -304,7 +304,7 @@ export const extractReferencesFromFile = async (file: File): Promise<{
     // Step 1: Extract text
     let rawText: string;
     if (fileType === 'pdf') {
-      rawText = await extractTextFromPdf(file, 7);
+      rawText = await extractTextFromPdf(file, 50);
     } else {
       rawText = await extractTextFromDocx(file);
     }

@@ -350,7 +350,7 @@ export const BunchPdfView: React.FC<BunchPdfViewProps> = ({ onBack, darkMode }) 
                   {isDragging ? 'Drop your papers here! 🔥' : 'Drop PDF/DOCX papers here'}
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  or click to browse • We'll extract references from the last 7 pages
+                  or click to browse • We'll extract references from the last 50 pages
                 </p>
               </div>
               
