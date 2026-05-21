@@ -598,6 +598,12 @@ export const BunchPdfView: React.FC<BunchPdfViewProps> = ({ onBack, darkMode }) 
               </div>
             </div>
           )}
+          {/* Disclaimer */}
+          <div className="mt-8 text-center px-4 pb-8">
+            <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+              *Disclaimer: Automatic reference extraction from PDF/DOCX files is experimental and might contain errors or miss citations. Always double check flagged references manually.
+            </p>
+          </div>
         </div>
       </main>
     </div>

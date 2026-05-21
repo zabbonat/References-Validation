@@ -5,6 +5,7 @@
 
 ## 🚀 Features
 - **Quick Verification**: Verification of single references via text selection or clipboard.
+- **PDF & DOCX Batch Processing**: Upload your full PDF/DOCX papers directly. CheckIfExist will automatically locate the References section, extract all citations across multiple pages, and batch verify them!
 - **Batch Processing**: Paste a list of BibTeX entries or plain text/numbered citations to verify them all at once. Includes a progress bar and summary statistics.
 - **File Upload**: Upload references directly from txt/bib/docx files without manually copying or pasting.
 - **Advanced Validation Logic**:
