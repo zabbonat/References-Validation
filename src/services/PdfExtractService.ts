@@ -228,10 +228,11 @@ export const splitIntoReferences = (sectionText: string): string[] => {
   } else {
     // Unnumbered (APA/paragraph style): split on blank lines or detect
     // references by looking for year patterns at line starts
-    // Heuristic: a new reference starts with an author name (capitalized)
-    // after a blank line
     let currentRef = '';
     let prevLineEmpty = true;
+    
+    // Pattern: Capital letter, up to 250 characters, then (YYYY) or (YYYYa)
+    const apaStartPattern = /^[A-Z\u00C0-\u024F].{0,250}?\(\d{4}[a-z]?\)/;
     
     for (const line of lines) {
       const trimmed = line.trim();
@@ -246,11 +247,14 @@ export const splitIntoReferences = (sectionText: string): string[] => {
         continue;
       }
       
-      // Check if this looks like the start of a new APA reference
-      // (starts with a capital letter after a blank line, or after a period + year)
-      const looksLikeNewRef = prevLineEmpty && /^[A-Z\u00C0-\u024F]/.test(trimmed);
+      // Heuristic 1: After a blank line, starting with a capital letter
+      const looksLikeNewRefAfterBlank = prevLineEmpty && /^[A-Z\u00C0-\u024F]/.test(trimmed);
       
-      if (looksLikeNewRef && currentRef.trim()) {
+      // Heuristic 2: Line starts with typical APA author+year pattern AND previous line ended with punctuation
+      const endsWithPunctuation = /[.\d)\]>]$/.test(currentRef.trim());
+      const looksLikeNewRefPattern = endsWithPunctuation && apaStartPattern.test(trimmed);
+      
+      if ((looksLikeNewRefAfterBlank || looksLikeNewRefPattern) && currentRef.trim()) {
         refs.push(currentRef.trim());
         currentRef = trimmed;
       } else {
