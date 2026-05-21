@@ -862,7 +862,7 @@ Or Numbered/Plain text:
           <div className="text-center px-4 mb-4">
             <button
               onClick={() => setShowBunchPdf(true)}
-              className="w-full max-w-md mx-auto flex items-center justify-center space-x-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3.5 px-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 group"
+              className="w-full max-w-md mx-auto flex items-center justify-center space-x-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium py-3.5 px-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 group"
             >
               <Upload size={20} className="group-hover:-translate-y-0.5 transition-transform" />
               <div className="text-left">

@@ -29,9 +29,9 @@ const REFERENCE_HEADINGS = [
 // Handles: "References", "REFERENCES", "8. References", "VIII. References", "References:", etc.
 const buildHeadingRegex = (): RegExp => {
   const headingAlts = REFERENCE_HEADINGS.join('|');
-  // Match optional numbering (1., VIII., etc.) + heading + optional punctuation
+  // Match optional numbering (1., VIII., etc.) + heading + optional punctuation and trailing page numbers
   return new RegExp(
-    `^\\s*(?:[0-9IVXLC]+[.\\s)]+)?\\s*(${headingAlts})\\s*[:\\s]*$`,
+    `^\\s*(?:[0-9IVXLC]+[.\\s)]+)?\\s*(${headingAlts})\\s*[:\\s\\d.\\-]*$`,
     'im'
   );
 };
@@ -86,13 +86,16 @@ export const extractTextFromPdf = async (file: File, lastNPages: number = 7): Pr
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     
-    // Extract text items and join them with proper spacing
+    // Extract text items and preserve line breaks
     const pageText = textContent.items
       .map((item: any) => {
-        if ('str' in item) return item.str;
+        if ('str' in item) {
+          // If the item signals an end-of-line, append a newline, otherwise a space
+          return item.str + (item.hasEOL ? '\n' : ' ');
+        }
         return '';
       })
-      .join(' ');
+      .join('');
     
     pageTexts.push(pageText);
   }
