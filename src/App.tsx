@@ -5,6 +5,7 @@ import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './serv
 import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, generateRISFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
 import { ReportView } from './components/ReportView';
+import { BunchPdfView } from './components/BunchPdfView';
 import { Search, ClipboardList, Download, Copy, Check, Quote, Lightbulb, Filter, FileText, Sun, Moon, Upload, X, BookOpen } from 'lucide-react';
 
 const QUICK_CHECK_EXAMPLE = `Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., ... & Hassabis, D. (2016). Mastering the game of Go with deep neural networks and tree search. Nature, 529(7587), 484-489.`;
@@ -127,6 +128,9 @@ function App() {
 
   // Batch Cancellation
   const batchCancelledRef = useRef(false);
+
+  // PDF Bunch View
+  const [showBunchPdf, setShowBunchPdf] = useState(false);
 
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => {
@@ -452,6 +456,11 @@ function App() {
       }
     });
   }, [batchResults, filter]);
+
+  // PDF Bunch View
+  if (showBunchPdf) {
+    return <BunchPdfView onBack={() => setShowBunchPdf(false)} darkMode={darkMode} />;
+  }
 
   // Report View — full report of all results without filtering
   if (showBatchView && showReport && allBatchDone) {
@@ -847,6 +856,20 @@ Or Numbered/Plain text:
                 <span>Try Batch Check example</span>
               </button>
             </div>
+          </div>
+
+          {/* Upload Papers button */}
+          <div className="text-center px-4 mb-4">
+            <button
+              onClick={() => setShowBunchPdf(true)}
+              className="w-full max-w-md mx-auto flex items-center justify-center space-x-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3.5 px-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 group"
+            >
+              <Upload size={20} className="group-hover:-translate-y-0.5 transition-transform" />
+              <div className="text-left">
+                <div className="text-sm font-bold">Upload Papers (PDF / DOCX)</div>
+                <div className="text-xs opacity-80">Extract & check references from your papers</div>
+              </div>
+            </button>
           </div>
 
           {/* Disclaimer */}
