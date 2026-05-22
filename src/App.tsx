@@ -754,7 +754,7 @@ function App() {
             className="hidden sm:flex items-center space-x-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-sm group"
           >
             <FileText size={14} className="group-hover:-translate-y-0.5 transition-transform" />
-            <span>Upload & Check from multiple papers</span>
+            <span>Auto-Extract from PDF/DOCX</span>
           </button>
         </div>
         <div className="flex items-center space-x-2">
