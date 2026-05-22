@@ -754,7 +754,7 @@ function App() {
             className="hidden sm:flex items-center space-x-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-medium py-1.5 px-3 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-sm group"
           >
             <FileText size={14} className="group-hover:-translate-y-0.5 transition-transform" />
-            <span>Upload & Check multiple papers?</span>
+            <span>Upload & Check from multiple papers</span>
           </button>
         </div>
         <div className="flex items-center space-x-2">
@@ -836,48 +836,47 @@ Or Numbered/Plain text:
               )}
             </div>
 
-            {/* Two buttons side by side */}
+            {/* Action Buttons and Examples */}
             <div className="mt-4 flex space-x-3">
-              <button
-                onClick={() => handleQuickCheck(input)}
-                disabled={loadingQuick || !input}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-500 border border-blue-700 dark:border-blue-400 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
-              >
-                <Search size={18} />
-                <span>{loadingQuick ? 'Verifying...' : 'Quick Check'}</span>
-              </button>
-              <button
-                onClick={() => handleBatchCheck()}
-                disabled={!input || batchResults.some(r => r.loading)}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-600 dark:hover:bg-purple-500 border border-purple-700 dark:border-purple-400 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
-              >
-                <ClipboardList size={18} />
-                <span>Batch Check</span>
-              </button>
-            </div>
+              {/* Quick Check Column */}
+              <div className="flex-1 flex flex-col items-center">
+                <button
+                  onClick={() => handleQuickCheck(input)}
+                  disabled={loadingQuick || !input}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-500 border border-blue-700 dark:border-blue-400 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  <Search size={18} />
+                  <span>{loadingQuick ? 'Verifying...' : 'Quick Check'}</span>
+                </button>
+                <button
+                  onClick={() => setInput(QUICK_CHECK_EXAMPLE)}
+                  disabled={loadingQuick}
+                  className="mt-2 text-xs text-blue-500 hover:text-blue-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
+                >
+                  <Lightbulb size={12} />
+                  <span>Try Quick Check example</span>
+                </button>
+              </div>
 
-            {/* Try an Example links */}
-            <div className="mt-3 flex justify-center space-x-6">
-              <button
-                onClick={() => {
-                  setInput(QUICK_CHECK_EXAMPLE);
-                }}
-                disabled={loadingQuick}
-                className="text-xs text-blue-500 hover:text-blue-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
-              >
-                <Lightbulb size={12} />
-                <span>Try Quick Check example</span>
-              </button>
-              <button
-                onClick={() => {
-                  setInput(BATCH_CHECK_EXAMPLE);
-                }}
-                disabled={batchResults.some(r => r.loading)}
-                className="text-xs text-purple-500 hover:text-purple-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
-              >
-                <Lightbulb size={12} />
-                <span>Try Batch Check example</span>
-              </button>
+              {/* Batch Check Column */}
+              <div className="flex-1 flex flex-col items-center">
+                <button
+                  onClick={() => handleBatchCheck()}
+                  disabled={!input || batchResults.some(r => r.loading)}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-600 dark:hover:bg-purple-500 border border-purple-700 dark:border-purple-400 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  <ClipboardList size={18} />
+                  <span>Batch Check</span>
+                </button>
+                <button
+                  onClick={() => setInput(BATCH_CHECK_EXAMPLE)}
+                  disabled={batchResults.some(r => r.loading)}
+                  className="mt-2 text-xs text-purple-500 hover:text-purple-700 transition-colors flex items-center space-x-1 disabled:opacity-50"
+                >
+                  <Lightbulb size={12} />
+                  <span>Try Batch Check example</span>
+                </button>
+              </div>
             </div>
           </div>
 
