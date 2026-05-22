@@ -1,7 +1,7 @@
 // CheckIfExist Service Worker
 // Provides offline support by caching the app shell and API responses
 
-const CACHE_NAME = 'checkifexist-v1';
+const CACHE_NAME = 'checkifexist-v2';
 
 // App shell files to cache on install
 const APP_SHELL = [
@@ -34,7 +34,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first strategy for API calls, cache-first for app shell
+// Fetch: Network-first for HTML, Cache-first for hashed assets
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -42,32 +42,44 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // API calls (CrossRef, SemanticScholar, OpenAlex) — network only, don't cache
+  // API calls — network only
   if (
     url.hostname.includes('api.crossref.org') ||
     url.hostname.includes('api.semanticscholar.org') ||
     url.hostname.includes('api.openalex.org')
   ) {
-    return; // Let the browser handle normally
+    return;
   }
 
-  // App shell and assets — cache-first, fallback to network
+  // HTML / Navigation requests: Network-first, fallback to cache
+  if (request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/References-Validation/') {
+    event.respondWith(
+      fetch(request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        return response;
+      }).catch(() => {
+        return caches.match(request).then((cached) => {
+          return cached || caches.match('/References-Validation/index.html');
+        });
+      })
+    );
+    return;
+  }
+
+  // JS, CSS, Images, and other assets (which have hashes in Vite): Cache-first
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
 
       return fetch(request).then((response) => {
-        // Cache successful responses for static assets
-        if (response.ok && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.html'))) {
+        if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback for navigation requests
-        if (request.mode === 'navigate') {
-          return caches.match('/References-Validation/index.html');
-        }
+        // Ignore failures for assets
       });
     })
   );
