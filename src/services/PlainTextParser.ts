@@ -183,7 +183,7 @@ export const parseVancouverStyle = (ref: string): ParsedPlainTextRef | null => {
 /**
  * Generic fallback parser — tries to extract at least title and year
  */
-export const parseGeneric = (ref: string): ParsedPlainTextRef | null => {
+export const parseGeneric = (ref: string): ParsedPlainTextRef => {
     const result: ParsedPlainTextRef = { raw: ref };
     result.refNumber = extractRefNumber(ref);
     result.doi = extractDOI(ref);
