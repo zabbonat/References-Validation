@@ -109,20 +109,31 @@ const extractLikelyTitle = (rawRef: string): string | null => {
     // Pattern: after removing initials, author last names are capitalized words
     // We try to detect the boundary by looking for sequences of:
     //   Capitalized-Word, Capitalized-Word (likely authors or journal)
-    // Strategy: split on commas and take the longest segment that looks like a title
-    const segments = ref.split(/[,;]/)
-        .map(s => s.trim())
+    // Strategy: split on sentence boundaries (period/comma/semicolon followed by space)
+    // and take the segment that looks most like a title
+    const segments = ref.split(/[,;]|(?<=\.)\s+(?=[A-Z])/)
+        .map(s => s.trim().replace(/^[.]+|[.]+$/g, '').trim())
         .filter(s => s.length > 5);
 
     if (segments.length > 1) {
-        // The title is usually the longest continuous segment, or the first one
-        // that contains mostly lowercase words (not author names)
+        // Known journal/venue keywords — penalize segments containing these
+        const venueKeywords = /\b(journal|proceedings|conference|transactions|advances|letters|review|annals|bulletin|workshop|symposium|arxiv)\b/i;
+        // Author-like patterns: "and" connecting names, or comma-separated capitalized words
+        const authorPattern = /\b(and)\b.*\b(and)\b|\b[A-Z][a-z]+\s+and\s+[A-Z][a-z]+/;
+
         const scored = segments.map(seg => {
             const words = seg.split(/\s+/);
             // Count how many words are lowercase (title-like) vs ALL CAPS / Capitalized (author-like)
             const lowercaseWords = words.filter(w => w.length > 2 && w[0] === w[0].toLowerCase()).length;
             const ratio = words.length > 0 ? lowercaseWords / words.length : 0;
-            return { seg, score: seg.length * (0.5 + ratio) };
+            let score = seg.length * (0.5 + ratio);
+
+            // Penalize segments that look like journal/venue names
+            if (venueKeywords.test(seg)) score *= 0.3;
+            // Penalize segments that look like author lists
+            if (authorPattern.test(seg)) score *= 0.3;
+
+            return { seg, score };
         });
         scored.sort((a, b) => b.score - a.score);
         ref = scored[0].seg;
