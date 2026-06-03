@@ -461,12 +461,21 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     if (nQuery.includes(nTitle) || nTitle.includes(nQuery)) {
                         titleScore = 100;
                     } else {
+                        // Try word-overlap: check BOTH directions to prevent false positives.
+                        // e.g., result title "Advances in Neural Information Processing Systems"
+                        // would falsely match because those words appear in the query's journal field.
                         const titleWords = nTitle.split(/\s+/).filter(w => w.length >= 3);
-                        const matchingWords = titleWords.filter(w => nQuery.includes(w));
-                        const wordOverlap = titleWords.length > 0 ? matchingWords.length / titleWords.length : 0;
+                        const queryWords = nQuery.split(/\s+/).filter(w => w.length >= 3);
+                        const matchingTitleWords = titleWords.filter(w => nQuery.includes(w));
+                        const wordOverlap = titleWords.length > 0 ? matchingTitleWords.length / titleWords.length : 0;
+
+                        // Bidirectional check: what fraction of query words does the title cover?
+                        const matchingQueryWords = queryWords.filter(w => nTitle.includes(w));
+                        const reverseOverlap = queryWords.length > 0 ? matchingQueryWords.length / queryWords.length : 0;
                         
-                        if (wordOverlap >= 0.8) {
-                            titleScore = Math.round(85 + wordOverlap * 15);
+                        if (wordOverlap >= 0.8 && reverseOverlap >= 0.4) {
+                            // Title covers enough of the query — likely correct
+                            titleScore = Math.round(85 + wordOverlap * 15); // 85-100 range
                         } else {
                             titleScore = calculateSimilarity(query, iTitle);
                         }
@@ -521,12 +530,17 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 if (nQuery.includes(nTitle) || nTitle.includes(nQuery)) {
                     titleSim = 100;
                 } else {
-                    // Try word-overlap: if most title words appear in query, it's likely correct
+                    // Try word-overlap: check BOTH directions to prevent false positives
                     const titleWords = nTitle.split(/\s+/).filter(w => w.length >= 3);
-                    const matchingWords = titleWords.filter(w => nQuery.includes(w));
-                    const wordOverlap = titleWords.length > 0 ? matchingWords.length / titleWords.length : 0;
+                    const queryWords = nQuery.split(/\s+/).filter(w => w.length >= 3);
+                    const matchingTitleWords = titleWords.filter(w => nQuery.includes(w));
+                    const wordOverlap = titleWords.length > 0 ? matchingTitleWords.length / titleWords.length : 0;
+
+                    // Bidirectional check: result title must cover enough of the query
+                    const matchingQueryWords = queryWords.filter(w => nTitle.includes(w));
+                    const reverseOverlap = queryWords.length > 0 ? matchingQueryWords.length / queryWords.length : 0;
                     
-                    if (wordOverlap >= 0.8) {
+                    if (wordOverlap >= 0.8 && reverseOverlap >= 0.4) {
                         titleSim = Math.round(85 + wordOverlap * 15); // 85-100 range
                     } else {
                         titleSim = calculateSimilarity(query, resultTitle);
