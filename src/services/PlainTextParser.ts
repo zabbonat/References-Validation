@@ -183,24 +183,69 @@ const parseGeneric = (ref: string): ParsedPlainTextRef => {
     result.doi = extractDOI(ref);
     result.year = extractYear(ref);
 
-    // Remove ref number prefix, DOI, URLs
+    // Remove ref number prefix, DOI, URLs, years in parentheses
     const cleaned = ref
         .replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '')
         .replace(/(?:DOI\s*[：:]\s*)10\.\d{4,9}\/[^\s,;]+/gi, '')
         .replace(/https?:\/\/[^\s,]+/gi, '')
+        .replace(/\(?\b(19|20)\d{2}\b\)?/g, '')
         .trim();
 
-    // Try to extract title (longest sentence-like segment)
+    // Split on period followed by space (sentence boundaries)
     const segments = cleaned.split(/[.]\s+/)
-        .map(s => s.trim())
-        .filter(s => s.length > 10);
+        .map(s => s.trim().replace(/\.$/, '').trim())
+        .filter(s => s.length > 5);
     
     if (segments.length >= 2) {
-        // First segment is likely authors, second is title
-        result.authors = segments[0].replace(/\.$/, '');
-        result.title = segments[1].replace(/\.$/, '');
+        // Heuristics to distinguish title from authors:
+        // - Authors have: "and" connecting names, comma-separated capitalized names
+        // - Journal/venue has: known keywords (journal, proceedings, advances, etc.)
+        // - Title: typically the segment with most lowercase content words
+        const authorPattern = /\b(and)\b.*(?:,|\band\b)/i;
+        const venueKeywords = /\b(journal|proceedings|conference|transactions|advances|letters|review|annals|bulletin|workshop|symposium|arxiv|ieee|acm|springer|nature|science)\b/i;
+
+        let bestTitleIdx = 0;
+        let bestTitleScore = -1;
+
+        for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            const words = seg.split(/\s+/);
+            const lowercaseWords = words.filter(w => w.length > 2 && w[0] === w[0].toLowerCase()).length;
+            const ratio = words.length > 0 ? lowercaseWords / words.length : 0;
+            let score = seg.length * (0.5 + ratio);
+
+            // Penalize author-like segments
+            if (authorPattern.test(seg)) score *= 0.2;
+            // Penalize venue-like segments
+            if (venueKeywords.test(seg)) score *= 0.2;
+
+            if (score > bestTitleScore) {
+                bestTitleScore = score;
+                bestTitleIdx = i;
+            }
+        }
+
+        result.title = segments[bestTitleIdx];
+
+        // Find authors: the segment that looks most like an author list
+        for (let i = 0; i < segments.length; i++) {
+            if (i === bestTitleIdx) continue;
+            if (authorPattern.test(segments[i]) || /^[A-Z][a-z]+,/.test(segments[i])) {
+                result.authors = segments[i];
+                break;
+            }
+        }
+
+        // Find journal: segment with venue keywords
+        for (let i = 0; i < segments.length; i++) {
+            if (i === bestTitleIdx) continue;
+            if (venueKeywords.test(segments[i])) {
+                result.journal = segments[i];
+                break;
+            }
+        }
     } else if (segments.length === 1) {
-        result.title = segments[0].replace(/\.$/, '');
+        result.title = segments[0];
     }
 
     return result;

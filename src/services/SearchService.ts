@@ -1245,7 +1245,10 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // ===== FIRE ALL REQUESTS IN PARALLEL =====
     // Start all 5 requests immediately, but only WAIT for arXiv/DBLP if primary sources fail.
     // This ensures zero extra latency when papers are found in CrossRef/SS/OpenAlex.
-    const crossRefPromise = checkReference(query, expected, originalQuery);
+    // When no expected metadata is available (Quick Check), use the clean extracted title
+    // for CrossRef too — prevents matching on journal/author names in the raw query.
+    const crossRefQuery = expected ? query : fallbackSearchTitle;
+    const crossRefPromise = checkReference(crossRefQuery, expected, originalQuery || (expected ? undefined : query));
     const ssPromise = searchSemanticScholar(fallbackSearchTitle, expectedYear).catch(() => null);
     const oaPromise = searchOpenAlex(fallbackSearchTitle, expectedYear).catch(() => null);
     const arxivPromise = searchArxiv(fallbackSearchTitle, expectedYear).catch(() => null);
