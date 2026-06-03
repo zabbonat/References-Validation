@@ -180,6 +180,30 @@ export const searchArxiv = async (title: string, expectedYear?: string): Promise
     }
 };
 
+/**
+ * Resolve a paper directly by arXiv ID (e.g., "2301.12345").
+ * Uses the id_list parameter for exact, instant lookup.
+ * @param arxivId - The arXiv ID to resolve
+ * @returns The paper or null
+ */
+export const resolveArxivById = async (arxivId: string): Promise<ArxivResult | null> => {
+    try {
+        const cleanId = arxivId.replace(/^arXiv:/i, '').replace(/v\d+$/, '').trim();
+        const apiUrl = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(cleanId)}&max_results=1`;
+
+        const response = await fetch(apiUrl);
+        if (!response.ok) return null;
+
+        const xmlText = await response.text();
+        const papers = parseArxivResponse(xmlText);
+
+        return papers.length > 0 ? papers[0] : null;
+    } catch (error) {
+        console.error('arXiv ID resolution failed:', error);
+        return null;
+    }
+};
+
 // ===== CITATION FORMATTERS =====
 
 /**

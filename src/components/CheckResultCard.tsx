@@ -16,6 +16,7 @@ const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckRes
         'SemanticScholar': 'bg-purple-100 text-purple-700',
         'OpenAlex': 'bg-orange-100 text-orange-700',
         'Arxiv': 'bg-red-100 text-red-700',
+        'DBLP': 'bg-yellow-100 text-yellow-700',
         'NotFound': 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300/90'
     };
 
@@ -266,7 +267,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                         ) : (
                             <div className="space-y-3">
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    No matching reference found in CrossRef, Semantic Scholar, OpenAlex, or arXiv.
+                                    No matching reference found in CrossRef, Semantic Scholar, OpenAlex, DBLP, or arXiv.
                                 </p>
 
                                 {result.issues && result.issues.length > 0 && (
