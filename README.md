@@ -1,6 +1,6 @@
 # [CheckIfExist](https://zabbonat.github.io/References-Validation/) - Reference Verification Tool 🔍
 
-[**CheckIfExist**](https://zabbonat.github.io/References-Validation/) is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef, Semantic Scholar, OpenAlex, and DBLP databases to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
+[**CheckIfExist**](https://zabbonat.github.io/References-Validation/) is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef, Semantic Scholar, OpenAlex, DBLP, and arXiv databases to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
 
 ## 🚀 Features
@@ -14,7 +14,8 @@
   - Handles "First Name Last Name" vs "Last Name First Name" variations.
   - Penalizes scores for missing authors in the query.
   - Retraction Check: Automatically alerts if an article has been retracted or withdrawn based on CrossRef and OpenAlex data.
-  - DBLP Fallback: When a paper isn't found in CrossRef, Semantic Scholar, or OpenAlex, CheckIfExist automatically queries DBLP to catch computer science papers not yet indexed elsewhere.
+  - DBLP + arXiv Fallback: When a paper isn't found in CrossRef, Semantic Scholar, or OpenAlex, CheckIfExist automatically queries DBLP and arXiv to catch conference papers and preprints not yet indexed elsewhere.
+  - arXiv Direct Lookup: References containing an arXiv ID (e.g., `arXiv:2301.12345`) or arXiv DOI (`10.48550/arXiv.XXXX`) are resolved instantly via the arXiv API.
 - **Smart Filtering & Reporting**:
   - Dynamic filter bar (All, Verified, Partial, Mismatch, Not Found, Issues) to quickly isolate problematic references in batch reports.
 - **Bibliometric Data**:

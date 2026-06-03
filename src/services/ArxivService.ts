@@ -135,10 +135,10 @@ export const searchArxiv = async (title: string, expectedYear?: string): Promise
         // Use ti: prefix to search specifically in titles
         // Also do an all: search for better recall with messy queries
         const encodedQuery = encodeURIComponent(title);
-        // Use Vercel Serverless Function to bypass CORS and hide IPs
-        const PROXY_URL = '/api/proxy?url=';
+        // Use CodeTabs public proxy to bypass ArXiv's anti-bot IP blocking and CORS
+        const PROXY_URL = 'https://api.codetabs.com/v1/proxy?quest=';
         const apiUrl = `https://export.arxiv.org/api/query?search_query=ti:${encodedQuery}&max_results=5&sortBy=relevance&sortOrder=descending`;
-        
+
         const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl));
 
         if (!response.ok) {
@@ -191,9 +191,10 @@ export const searchArxiv = async (title: string, expectedYear?: string): Promise
 export const resolveArxivById = async (arxivId: string): Promise<ArxivResult | null> => {
     try {
         const cleanId = arxivId.replace(/^arXiv:/i, '').replace(/v\d+$/, '').trim();
-        const apiUrl = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(cleanId)}&max_results=1`;
+        const PROXY_URL = 'https://api.codetabs.com/v1/proxy?quest=';
+        const apiUrl = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(cleanId)}`;
 
-        const response = await fetch(apiUrl);
+        const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl));
         if (!response.ok) return null;
 
         const xmlText = await response.text();
