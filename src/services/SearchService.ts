@@ -1217,14 +1217,17 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // Determine search title for fallback sources (clean it up for better API results)
     const fallbackSearchTitle = expected?.title || extractLikelyTitle(query) || query;
 
-    // ===== QUERY ALL SOURCES IN PARALLEL (speed optimization) =====
-    const [crossRefResult, ssResult, oaResult, arxivResult, dblpResult] = await Promise.all([
-        checkReference(query, expected, originalQuery),
-        searchSemanticScholar(fallbackSearchTitle, expectedYear).catch(() => null),
-        searchOpenAlex(fallbackSearchTitle, expectedYear).catch(() => null),
-        searchArxiv(fallbackSearchTitle, expectedYear).catch(() => null),
-        searchDblp(fallbackSearchTitle, expectedYear).catch(() => null)
-    ]);
+    // ===== FIRE ALL REQUESTS IN PARALLEL =====
+    // Start all 5 requests immediately, but only WAIT for arXiv/DBLP if primary sources fail.
+    // This ensures zero extra latency when papers are found in CrossRef/SS/OpenAlex.
+    const crossRefPromise = checkReference(query, expected, originalQuery);
+    const ssPromise = searchSemanticScholar(fallbackSearchTitle, expectedYear).catch(() => null);
+    const oaPromise = searchOpenAlex(fallbackSearchTitle, expectedYear).catch(() => null);
+    const arxivPromise = searchArxiv(fallbackSearchTitle, expectedYear).catch(() => null);
+    const dblpPromise = searchDblp(fallbackSearchTitle, expectedYear).catch(() => null);
+
+    // Await only the 3 primary sources first
+    const [crossRefResult, ssResult, oaResult] = await Promise.all([crossRefPromise, ssPromise, oaPromise]);
 
     // ===== BUILD CANDIDATE LIST =====
     interface Candidate {
@@ -1387,7 +1390,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         return winner;
     }
 
-    // ===== FALLBACK: CHECK ARXIV + DBLP RESULTS (already fetched in parallel) =====
+    // ===== FALLBACK: AWAIT ARXIV + DBLP (requests already in-flight since earlier) =====
+    const [arxivResult, dblpResult] = await Promise.all([arxivPromise, dblpPromise]);
     const fallbackCandidates: Candidate[] = [];
 
     // --- arXiv candidate ---
