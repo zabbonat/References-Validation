@@ -1,0 +1,26 @@
+{
+  "name": "CheckIfExist - Reference Validation",
+  "short_name": "CheckIfExist",
+  "description": "Verify academic references against CrossRef, Semantic Scholar, and OpenAlex databases",
+  "start_url": "/References-Validation/",
+  "scope": "/References-Validation/",
+  "display": "standalone",
+  "background_color": "#0B1120",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "categories": ["education", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

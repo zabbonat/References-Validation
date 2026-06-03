@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/References-Validation/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/References-Validation/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="apple-touch-icon" href="/References-Validation/icons/icon-192.png" />
+
+  <!-- SEO Meta Tags -->
+  <title>CheckIfExist - Academic Reference Validation Tool</title>
+  <meta name="description"
+    content="Free online tool to verify academic references and citations. Check if your bibliography entries exist using CrossRef, Semantic Scholar, and OpenAlex databases. Get corrected APA citations and BibTeX." />
+  <meta name="keywords"
+    content="reference validation, citation checker, bibliography verification, CrossRef, Semantic Scholar, OpenAlex, APA citation, BibTeX, academic references, paper verification" />
+  <meta name="author" content="zabbonat" />
+
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="CheckIfExist - Academic Reference Validation Tool" />
+  <meta property="og:description"
+    content="Free online tool to verify academic references and citations against CrossRef, Semantic Scholar, and OpenAlex." />
+  <meta property="og:url" content="https://zabbonat.github.io/References-Validation/" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="CheckIfExist - Academic Reference Validation" />
+  <meta name="twitter:description"
+    content="Verify your academic references online. Check citations against multiple databases." />
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://zabbonat.github.io/References-Validation/" />
+
+  <!-- Robots -->
+  <meta name="robots" content="index, follow" />
+
+  <!-- Schema.org Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "CheckIfExist",
+    "url": "https://zabbonat.github.io/References-Validation/",
+    "description": "Free online tool to verify academic references and citations. Check if your bibliography entries exist using CrossRef, Semantic Scholar, and OpenAlex databases.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any",
+    "browserRequirements": "Requires JavaScript",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Diletta Abbonato",
+      "url": "https://github.com/zabbonat"
+    },
+    "citation": {
+      "@type": "ScholarlyArticle",
+      "name": "CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content",
+      "author": {
+        "@type": "Person",
+        "name": "Diletta Abbonato"
+      },
+      "datePublished": "2026",
+      "url": "https://arxiv.org/abs/2602.15871"
+    },
+    "featureList": [
+      "Single reference verification",
+      "Batch BibTeX and plain-text processing",
+      "CrossRef, Semantic Scholar, OpenAlex cross-checking",
+      "Retraction detection",
+      "APA, MLA, ISO 690, BibTeX output formats",
+      "DOI validation",
+      "Duplicate detection",
+      "Excel and PDF export"
+    ],
+    "screenshot": "https://zabbonat.github.io/References-Validation/og-image.png",
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-G9CKEWCW3J"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-G9CKEWCW3J');
+  </script>
+  <script type="module" crossorigin src="/References-Validation/assets/index-WzQ8_u9_.js"></script>
+  <link rel="stylesheet" crossorigin href="/References-Validation/assets/index-Bm_YA3_4.css">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script>
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/References-Validation/sw.js')
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+
+</html>
