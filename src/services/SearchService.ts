@@ -469,7 +469,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     titleScore = calculateSimilarity(expected.title, iTitle);
                 } else {
                     const nTitle = normalize(iTitle);
-                    if (nQuery.includes(nTitle) || nTitle.includes(nQuery)) {
+                    if (nTitle && (nQuery.includes(nTitle) || nTitle.includes(nQuery))) {
                         titleScore = 100;
                     } else {
                         // Try word-overlap: check BOTH directions to prevent false positives.

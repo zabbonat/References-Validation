@@ -147,7 +147,7 @@ const parseAPAStyle = (ref: string): ParsedPlainTextRef | null => {
  * Parse a Vancouver/numbered style reference
  * Format: N. Authors. Title. Journal. Year;Vol(Issue):Pages.
  */
-const parseVancouverStyle = (ref: string): ParsedPlainTextRef | null => {
+export const parseVancouverStyle = (ref: string): ParsedPlainTextRef | null => {
     const result: ParsedPlainTextRef = { raw: ref };
     result.refNumber = extractRefNumber(ref);
     result.doi = extractDOI(ref);
@@ -183,7 +183,7 @@ const parseVancouverStyle = (ref: string): ParsedPlainTextRef | null => {
 /**
  * Generic fallback parser — tries to extract at least title and year
  */
-const parseGeneric = (ref: string): ParsedPlainTextRef => {
+export const parseGeneric = (ref: string): ParsedPlainTextRef | null => {
     const result: ParsedPlainTextRef = { raw: ref };
     result.refNumber = extractRefNumber(ref);
     result.doi = extractDOI(ref);
