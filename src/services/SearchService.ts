@@ -1251,7 +1251,6 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     const crossRefPromise = checkReference(crossRefQuery, expected, originalQuery || (expected ? undefined : query));
     const ssPromise = searchSemanticScholar(fallbackSearchTitle, expectedYear).catch(() => null);
     const oaPromise = searchOpenAlex(fallbackSearchTitle, expectedYear).catch(() => null);
-    const arxivPromise = searchArxiv(fallbackSearchTitle, expectedYear).catch(() => null);
     const dblpPromise = searchDblp(fallbackSearchTitle, expectedYear).catch(() => null);
 
     // Await only the 3 primary sources first

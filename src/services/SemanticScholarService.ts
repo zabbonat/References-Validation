@@ -64,18 +64,13 @@ export const searchSemanticScholar = async (title: string, expectedYear?: string
     try {
         const encodedQuery = encodeURIComponent(title);
         const fields = 'paperId,title,authors,year,venue,externalIds,url,citationCount,isRetracted';
-
-        const PROXY_URL = '/api/proxy?url=';
         const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodedQuery}&limit=5&fields=${fields}`;
 
-        const response = await fetch(
-            PROXY_URL + encodeURIComponent(apiUrl),
-            {
-                headers: {
-                    'Accept': 'application/json'
-                }
+        const response = await fetch(apiUrl, {
+            headers: {
+                'Accept': 'application/json'
             }
-        );
+        });
 
         if (!response.ok) {
             if (response.status === 429) {
