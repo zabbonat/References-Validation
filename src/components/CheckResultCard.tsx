@@ -11,10 +11,11 @@ interface Props {
 }
 
 const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckResult['fallbackSource'] }> = ({ source, fallback }) => {
-    const colors = {
+    const colors: Record<string, string> = {
         'CrossRef': 'bg-blue-100 text-blue-700',
         'SemanticScholar': 'bg-purple-100 text-purple-700',
         'OpenAlex': 'bg-orange-100 text-orange-700',
+        'Arxiv': 'bg-red-100 text-red-700',
         'NotFound': 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300/90'
     };
 
@@ -265,7 +266,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                         ) : (
                             <div className="space-y-3">
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    No matching reference found in CrossRef, Semantic Scholar, or OpenAlex.
+                                    No matching reference found in CrossRef, Semantic Scholar, OpenAlex, or arXiv.
                                 </p>
 
                                 {result.issues && result.issues.length > 0 && (

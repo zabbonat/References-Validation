@@ -1,5 +1,6 @@
 import { searchSemanticScholar, formatSemanticScholarAPA, generateSemanticScholarBibTeX, formatSemanticScholarMLA, formatSemanticScholarISO690 } from './SemanticScholarService';
 import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX, formatOpenAlexMLA, formatOpenAlexISO690 } from './OpenAlexService';
+import { searchArxiv, formatArxivAPA, formatArxivMLA, formatArxivISO690, generateArxivBibTeX } from './ArxivService';
 
 export interface CheckResult {
     exists: boolean;
@@ -32,8 +33,8 @@ export interface CheckResult {
     // Enrichment
     citations?: number;
 
-    source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'NotFound';
-    fallbackSource?: 'SemanticScholar' | 'OpenAlex'; // Source of correction
+    source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'Arxiv' | 'NotFound';
+    fallbackSource?: 'SemanticScholar' | 'OpenAlex' | 'Arxiv'; // Source of correction
 }
 
 // Rate limiting delay between batch requests (ms)
@@ -1307,6 +1308,46 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         return winner;
     }
 
+    // ===== ARXIV FALLBACK — only when all 3 primary sources failed =====
+    const arxivSearchTitle = expected?.title || extractLikelyTitle(query) || query;
+    const arxivResult = await searchArxiv(arxivSearchTitle, expectedYear).catch(() => null);
+
+    if (arxivResult) {
+        const arxivTitleSim = computeTitleSim(title, arxivResult.title);
+        const arxivAuthorSim = computeAuthorSim(expected?.authors || query, arxivResult.authors);
+
+        if (arxivTitleSim >= MIN_TITLE_SIMILARITY) {
+            const confidence = (arxivTitleSim * 2 + arxivAuthorSim) / 3;
+            const arxivCheckResult: CheckResult = {
+                exists: true,
+                title: arxivResult.title,
+                authors: arxivResult.authors.join(', '),
+                year: arxivResult.year?.toString() || '',
+                journal: arxivResult.category ? `arXiv [${arxivResult.category}]` : 'arXiv preprint',
+                url: arxivResult.url,
+                doi: arxivResult.doi || undefined,
+                apa: formatArxivAPA(arxivResult),
+                mla: formatArxivMLA(arxivResult),
+                iso690: formatArxivISO690(arxivResult),
+                bibtex: generateArxivBibTeX(arxivResult),
+                source: 'Arxiv',
+                matchConfidence: Math.min(90, confidence),
+                titleMatchScore: arxivTitleSim,
+                authorMatchScore: arxivAuthorSim,
+                journalMatchScore: arxivResult.category ? 80 : 50,
+                issues: [
+                    'Found in arXiv (not indexed in CrossRef, Semantic Scholar, or OpenAlex)',
+                    ...(arxivAuthorSim < 50 ? ['Author Mismatch in arXiv fallback'] : []),
+                    ...futureYearIssues
+                ]
+            };
+            if (invalidDoiIssue) {
+                arxivCheckResult.issues.push(invalidDoiIssue);
+            }
+            return arxivCheckResult;
+        }
+    }
+
     // ===== NO CANDIDATES FOUND — RETRY WITH EXTRACTED TITLE =====
     if (!expected?.title) {
         const extractedTitle = extractLikelyTitle(query);
@@ -1348,6 +1389,6 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         titleMatchScore: 0,
         authorMatchScore: 0,
         journalMatchScore: 0,
-        issues: ['Title not found in any source (CrossRef, Semantic Scholar, OpenAlex)']
+        issues: ['Title not found in any source (CrossRef, Semantic Scholar, OpenAlex, arXiv)']
     };
 };
