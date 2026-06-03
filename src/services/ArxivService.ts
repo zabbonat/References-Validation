@@ -135,9 +135,11 @@ export const searchArxiv = async (title: string, expectedYear?: string): Promise
         // Use ti: prefix to search specifically in titles
         // Also do an all: search for better recall with messy queries
         const encodedQuery = encodeURIComponent(title);
+        // Use Cloudflare worker to bypass CORS
+        const PROXY_URL = 'https://zabbonat-proxy.didiabbo.workers.dev/?url=';
         const apiUrl = `https://export.arxiv.org/api/query?search_query=ti:${encodedQuery}&max_results=5&sortBy=relevance&sortOrder=descending`;
-
-        const response = await fetch(apiUrl);
+        
+        const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl));
 
         if (!response.ok) {
             console.warn(`arXiv API returned ${response.status}`);

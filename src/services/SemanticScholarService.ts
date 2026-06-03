@@ -65,8 +65,11 @@ export const searchSemanticScholar = async (title: string, expectedYear?: string
         const encodedQuery = encodeURIComponent(title);
         const fields = 'paperId,title,authors,year,venue,externalIds,url,citationCount,isRetracted';
 
+        const PROXY_URL = 'https://zabbonat-proxy.didiabbo.workers.dev/?url=';
+        const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodedQuery}&limit=5&fields=${fields}`;
+
         const response = await fetch(
-            `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodedQuery}&limit=5&fields=${fields}`,
+            PROXY_URL + encodeURIComponent(apiUrl),
             {
                 headers: {
                     'Accept': 'application/json'
