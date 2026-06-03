@@ -1224,7 +1224,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         }
     }
 
-    const title = expected?.title || query;
+    const title = expected?.title || extractLikelyTitle(query) || query;
 
     // Extract expected year from query if not explicitly provided
     const extractSource = originalQuery || query;
