@@ -288,7 +288,28 @@ function App() {
     setBatchResults([]);
     setLoadingQuick(true);
     setQuickResult(null);
-    const result = await checkWithFallback(cleanedText);
+
+    // Detect BibTeX input and parse it into structured metadata
+    const trimmed = cleanedText.trim();
+    let result;
+    if (trimmed.startsWith('@')) {
+      const parsed = parseBibTex(trimmed);
+      if (parsed.length > 0 && parsed[0].entryTags.title) {
+        const p = parsed[0];
+        const searchQuery = `${p.entryTags.title} ${p.entryTags.author || ''}`;
+        result = await checkWithFallback(searchQuery, {
+          title: p.entryTags.title,
+          authors: p.entryTags.author,
+          journal: p.entryTags.journal,
+          year: p.entryTags.year
+        });
+      } else {
+        result = await checkWithFallback(cleanedText);
+      }
+    } else {
+      result = await checkWithFallback(cleanedText);
+    }
+
     setQuickResult(result);
     setLoadingQuick(false);
   };
