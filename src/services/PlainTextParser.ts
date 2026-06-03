@@ -153,8 +153,14 @@ const parseVancouverStyle = (ref: string): ParsedPlainTextRef | null => {
     result.doi = extractDOI(ref);
     result.year = extractYear(ref);
 
+    // Vancouver style usually starts with a number. If there's no number prefix,
+    // don't try to parse it as Vancouver (prevents false positives on plain text)
+    if (!/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]/.test(ref)) {
+        return null;
+    }
+
     // Remove ref number prefix
-    const cleaned = ref.replace(/^\s*\d{1,4}\.\s*/, '').trim();
+    const cleaned = ref.replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '').trim();
 
     // Split on periods to find segments
     const segments = cleaned.split(/\.\s+/).filter(s => s.length > 3);
