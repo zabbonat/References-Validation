@@ -16,7 +16,7 @@
   - Handles "First Name Last Name" vs "Last Name First Name" variations.
   - Penalizes scores for missing authors in the query.
   - Retraction Check: Automatically alerts if an article has been retracted or withdrawn based on CrossRef and OpenAlex data.
-  - DBLP + arXiv Fallback: When a paper isn't found in CrossRef, Semantic Scholar, or OpenAlex, CheckIfExist automatically queries DBLP and arXiv to catch conference papers and preprints not yet indexed elsewhere.
+  - DBLP + arXiv Fallback: When a paper isn't found (or has a low match confidence) in CrossRef, Semantic Scholar, and OpenAlex, CheckIfExist automatically queries DBLP and arXiv to catch conference papers and preprints not yet indexed elsewhere.
   - arXiv Direct Lookup: References containing an arXiv ID (e.g., `arXiv:2301.12345`) or arXiv DOI (`10.48550/arXiv.XXXX`) are resolved instantly via the arXiv API.
 - **Smart Filtering & Reporting**:
   - Dynamic filter bar (All, Verified, Partial, Mismatch, Not Found, Issues) to quickly isolate problematic references in batch reports.
