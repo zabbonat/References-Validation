@@ -221,9 +221,9 @@ export const parseGeneric = (ref: string): ParsedPlainTextRef => {
             let score = seg.length * (0.5 + ratio);
 
             // Penalize author-like segments
-            if (authorPattern.test(seg)) score *= 0.2;
+            if (authorPattern.test(seg)) score *= 0.05;
             // Penalize venue-like segments
-            if (venueKeywords.test(seg)) score *= 0.2;
+            if (venueKeywords.test(seg)) score *= 0.05;
 
             if (score > bestTitleScore) {
                 bestTitleScore = score;
@@ -236,7 +236,7 @@ export const parseGeneric = (ref: string): ParsedPlainTextRef => {
         // Find authors: the segment that looks most like an author list
         for (let i = 0; i < segments.length; i++) {
             if (i === bestTitleIdx) continue;
-            if (authorPattern.test(segments[i]) || /^[A-Z][a-z]+,/.test(segments[i])) {
+            if (authorPattern.test(segments[i]) || /^[A-Z{][A-Za-z\\"{}\-]+,/.test(segments[i]) || (i === 0 && segments.length >= 3 && bestTitleIdx === 1)) {
                 result.authors = segments[i];
                 break;
             }

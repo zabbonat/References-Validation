@@ -268,6 +268,12 @@ export const computeAuthorSim = (expectedAuthorsStr: string, resultAuthors: stri
     }
     
     if (validAuthors === 0) return 100;
+
+    const hasEtAl = /et\s*al|and\s*others/i.test(expectedAuthorsStr);
+    if (hasEtAl && matchCount > 0) {
+        return 100;
+    }
+
     return Math.round((matchCount / validAuthors) * 100);
 };
 
