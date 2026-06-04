@@ -259,7 +259,7 @@ export const computeAuthorSim = (expectedAuthorsStr: string, resultAuthors: stri
         if (parts.length === 0) continue;
         
         const family = parts[parts.length - 1];
-        if (family.length > 2) {
+        if (family.length > 1) { // > 1 to handle 2-letter last names like Ho, Wu, Li
             validAuthors++;
             if (nValidation.includes(family)) {
                 matchCount++;
