@@ -1388,47 +1388,37 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     }
 
     // ===== PICK THE BEST CANDIDATE =====
+    let primaryBest: Candidate | null = null;
     if (candidates.length > 0) {
         candidates.sort((a, b) => b.score - a.score);
-        const best = candidates[0];
+        primaryBest = candidates[0];
+        
+        // If the best primary match is very confident, return it immediately without waiting for fallbacks
+        if (primaryBest.result.authorMatchScore >= 70 && primaryBest.titleSim >= 85) {
+            if (primaryBest.source === 'CrossRef') {
+                const otherBest = candidates.find(c => c.source !== 'CrossRef');
+                if (otherBest && otherBest.score > primaryBest.score) {
+                    const winner = otherBest.result;
+                    winner.issues = [`Better match found in ${otherBest.source} (CrossRef confidence was ${primaryBest.result.matchConfidence}%)`];
+                    return winner;
+                }
+                if (futureYearIssues.length > 0) crossRefResult.issues = [...crossRefResult.issues, ...futureYearIssues];
+                if (invalidDoiIssue) crossRefResult.issues.push(invalidDoiIssue);
+                return crossRefResult;
+            }
 
-        // If CrossRef won, return its full result (which includes complete validation/issues)
-        if (best.source === 'CrossRef') {
-            // But check if SS or OA had a better match that CrossRef missed
-            // (only override if the other source is significantly better)
-            const otherBest = candidates.find(c => c.source !== 'CrossRef');
-            if (otherBest && otherBest.score > best.score) {
-                // This shouldn't happen since we sorted, but safety check
-                const winner = otherBest.result;
-                winner.issues = [`Better match found in ${otherBest.source} (CrossRef confidence was ${best.result.matchConfidence}%)`];
-                return winner;
+            const winner = primaryBest.result;
+            if (crossRefResult.exists) {
+                winner.issues = [`Better match found in ${primaryBest.source} (CrossRef confidence was ${crossRefResult.matchConfidence}%)`];
             }
-            // Add future year issues if applicable
-            if (futureYearIssues.length > 0) {
-                crossRefResult.issues = [...crossRefResult.issues, ...futureYearIssues];
-            }
-            if (invalidDoiIssue) {
-                crossRefResult.issues.push(invalidDoiIssue);
-            }
-            return crossRefResult;
+            if (futureYearIssues.length > 0) winner.issues = [...winner.issues, ...futureYearIssues];
+            if (invalidDoiIssue) winner.issues.push(invalidDoiIssue);
+            return winner;
         }
-
-        // Non-CrossRef source won — add context about where it came from
-        const winner = best.result;
-        if (crossRefResult.exists) {
-            winner.issues = [`Better match found in ${best.source} (CrossRef confidence was ${crossRefResult.matchConfidence}%)`];
-        }
-        // Add future year issues
-        if (futureYearIssues.length > 0) {
-            winner.issues = [...winner.issues, ...futureYearIssues];
-        }
-        if (invalidDoiIssue) {
-            winner.issues.push(invalidDoiIssue);
-        }
-        return winner;
     }
 
     // ===== FALLBACK: AWAIT ARXIV + DBLP (requests already in-flight since earlier) =====
+    // We arrive here if either no primary source found a match, OR the best primary match had a poor author score
     const [arxivResult, dblpResult] = await Promise.all([arxivPromise, dblpPromise]);
     const fallbackCandidates: Candidate[] = [];
 
@@ -1510,16 +1500,48 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         }
     }
 
-    // Pick best fallback candidate
-    if (fallbackCandidates.length > 0) {
-        fallbackCandidates.sort((a, b) => b.score - a.score);
-        const bestFallback = fallbackCandidates[0].result;
-        if (invalidDoiIssue) {
-            bestFallback.issues.push(invalidDoiIssue);
+    // Merge fallback candidates into main pool and re-sort to find the absolute best
+    candidates.push(...fallbackCandidates);
+    
+    if (candidates.length > 0) {
+        candidates.sort((a, b) => b.score - a.score);
+        const best = candidates[0];
+
+        if (best.source === 'CrossRef') {
+            const otherBest = candidates.find(c => c.source !== 'CrossRef');
+            if (otherBest && otherBest.score > best.score) {
+                const winner = otherBest.result;
+                winner.issues = [`Better match found in ${otherBest.source} (CrossRef confidence was ${best.result.matchConfidence}%)`];
+                return winner;
+            }
+            if (futureYearIssues.length > 0) crossRefResult.issues = [...crossRefResult.issues, ...futureYearIssues];
+            if (invalidDoiIssue) crossRefResult.issues.push(invalidDoiIssue);
+            return crossRefResult;
         }
-        return bestFallback;
+
+        const winner = best.result;
+        if (crossRefResult.exists) {
+            winner.issues = [`Better match found in ${best.source} (CrossRef confidence was ${crossRefResult.matchConfidence}%)`];
+        }
+        if (futureYearIssues.length > 0) winner.issues = [...winner.issues, ...futureYearIssues];
+        if (invalidDoiIssue) winner.issues.push(invalidDoiIssue);
+        
+        // If the best match is still terrible, return NotFound
+        if (winner.titleMatchScore < MIN_TITLE_SIMILARITY) {
+            return {
+                exists: false,
+                source: 'NotFound',
+                matchConfidence: 0,
+                titleMatchScore: 0,
+                authorMatchScore: 0,
+                journalMatchScore: 0,
+                issues: ['Title not found in any source (CrossRef, Semantic Scholar, OpenAlex, DBLP, arXiv)']
+            };
+        }
+        return winner;
     }
 
+    // If nothing found in candidates, proceed to retry logic
     // ===== NO CANDIDATES FOUND — RETRY WITH EXTRACTED TITLE =====
     if (!expected?.title) {
         const extractedTitle = extractLikelyTitle(query);
