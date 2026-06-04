@@ -254,7 +254,10 @@ export const computeAuthorSim = (expectedAuthorsStr: string, resultAuthors: stri
 
     for (const a of resultAuthors) {
         // Extract the last word as a naive family name approximation for OpenAlex/SS strings
-        const parts = normalize(a).split(' ');
+        // Filter out DBLP disambiguation digits (e.g. "0001", "0002")
+        const parts = normalize(a).split(' ').filter(p => !/^\d+$/.test(p));
+        if (parts.length === 0) continue;
+        
         const family = parts[parts.length - 1];
         if (family.length > 2) {
             validAuthors++;

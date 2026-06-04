@@ -56,9 +56,13 @@ const normalizeAuthors = (authorData: any): string[] => {
     if (!authorData) return [];
     const authors = Array.isArray(authorData) ? authorData : [authorData];
     return authors.map((a: unknown) => {
-        if (typeof a === 'string') return a;
-        if (typeof a === 'object' && a !== null && 'text' in a) return (a as { text: string }).text;
-        return String(a);
+        let name = '';
+        if (typeof a === 'string') name = a;
+        else if (typeof a === 'object' && a !== null && 'text' in a) name = (a as { text: string }).text;
+        else name = String(a);
+        
+        // Remove DBLP disambiguation digits (e.g., "Diletta Abbonato 0001" -> "Diletta Abbonato")
+        return name.replace(/\s+\d{4}$/, '').trim();
     }).filter((name: string) => name.length > 0);
 };
 
