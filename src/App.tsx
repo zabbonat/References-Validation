@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { parseBibTex } from './services/BibTexService';
-import { parsePlainTextRefs, detectDuplicates } from './services/PlainTextParser';
+import { parsePlainTextRefs, detectDuplicates, parseGeneric } from './services/PlainTextParser';
 import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, generateRISFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
@@ -304,10 +304,24 @@ function App() {
           year: p.entryTags.year
         });
       } else {
-        result = await checkWithFallback(cleanedText);
+        const parsedText = parseGeneric(cleanedText);
+        const searchQuery = `${parsedText.title || ''} ${parsedText.authors || ''}`.trim() || cleanedText;
+        result = await checkWithFallback(searchQuery, {
+          title: parsedText.title,
+          authors: parsedText.authors,
+          journal: parsedText.journal,
+          year: parsedText.year
+        });
       }
     } else {
-      result = await checkWithFallback(cleanedText);
+      const parsedText = parseGeneric(cleanedText);
+      const searchQuery = `${parsedText.title || ''} ${parsedText.authors || ''}`.trim() || cleanedText;
+      result = await checkWithFallback(searchQuery, {
+        title: parsedText.title,
+        authors: parsedText.authors,
+        journal: parsedText.journal,
+        year: parsedText.year
+      });
     }
 
     setQuickResult(result);
