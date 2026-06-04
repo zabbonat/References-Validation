@@ -2,6 +2,8 @@
 
 [**CheckIfExist**](https://zabbonat.github.io/References-Validation/) is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef, Semantic Scholar, OpenAlex, DBLP, and arXiv databases to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
+> **🆕 NEW UPDATE: arXiv & DBLP Integration!**  
+> CheckIfExist now features full fallback integration with both **arXiv** and **DBLP**. This massive update ensures that recent computer science conference papers (like NeurIPS, ICLR, CVPR) and preprints are successfully found and validated, even if they aren't indexed on CrossRef or Semantic Scholar yet!
 
 ## 🚀 Features
 - **Quick Verification**: Verification of single references via text selection or clipboard.
