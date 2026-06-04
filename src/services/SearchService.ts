@@ -589,7 +589,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             const realAuthorFamilies: string[] = (item.author || [])
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .map((a: any) => normalize(a.family || ""))
-                .filter((name: string) => name.length > 2);
+                .filter((name: string) => name.length > 1);
 
             // Fetch Real Author Given Names for first-letter matching
              
@@ -625,7 +625,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     const expectedList = decodedExpectedAuthors
                         .split(/[,&]|\sand\s/i)
                         .map(s => s.trim())
-                        .filter(s => s.length > 2);
+                        .filter(s => s.length > 1);
 
                     const extraAuthors = [];
                     for (const expAuth of expectedList) {

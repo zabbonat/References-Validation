@@ -62,7 +62,7 @@ export const generateRISFileContent = (results: CheckResult[]): string => {
                     .replace(/\s+and\s+/gi, ', ')
                     .split(/;\s*|,\s*(?=[A-Z])/)
                     .map(a => a.trim())
-                    .filter(a => a.length > 2 && !/^et\s+al/i.test(a));
+                    .filter(a => a.length > 1 && !/^et\s+al/i.test(a));
                 for (const author of authorList) {
                     lines.push(`AU  - ${author}`);
                 }
