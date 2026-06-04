@@ -1247,7 +1247,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     let precisionSearchTitle = fallbackSearchTitle;
     if (expected?.authors) {
         const firstAuthor = expected.authors.split(/,| and /)[0].trim().split(/\s+/).pop();
-        if (firstAuthor && firstAuthor.length > 2) {
+        if (firstAuthor && firstAuthor.length > 1) { // > 1 handles 2-letter names like "Ho", "Li", "Wu"
             precisionSearchTitle = `${fallbackSearchTitle} ${firstAuthor}`;
         }
     }
