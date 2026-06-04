@@ -1241,6 +1241,16 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
 
     // Determine search title for fallback sources (clean it up for better API results)
     const fallbackSearchTitle = expected?.title || extractLikelyTitle(query) || query;
+    
+    // For DBLP and ArXiv, appending the first author's last name massively improves precision
+    // and prevents them from returning newer unrelated papers with the same title.
+    let precisionSearchTitle = fallbackSearchTitle;
+    if (expected?.authors) {
+        const firstAuthor = expected.authors.split(/,| and /)[0].trim().split(/\s+/).pop();
+        if (firstAuthor && firstAuthor.length > 2) {
+            precisionSearchTitle = `${fallbackSearchTitle} ${firstAuthor}`;
+        }
+    }
 
     // ===== FIRE ALL REQUESTS IN PARALLEL =====
     // Start all 5 requests immediately, but only WAIT for arXiv/DBLP if primary sources fail.
@@ -1251,8 +1261,8 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     const crossRefPromise = checkReference(crossRefQuery, expected, originalQuery || (expected ? undefined : query));
     const ssPromise = searchSemanticScholar(fallbackSearchTitle, expectedYear).catch(() => null);
     const oaPromise = searchOpenAlex(fallbackSearchTitle, expectedYear).catch(() => null);
-    const arxivPromise = searchArxiv(fallbackSearchTitle, expectedYear).catch(() => null);
-    const dblpPromise = searchDblp(fallbackSearchTitle, expectedYear).catch(() => null);
+    const arxivPromise = searchArxiv(precisionSearchTitle, expectedYear).catch(() => null);
+    const dblpPromise = searchDblp(precisionSearchTitle, expectedYear).catch(() => null);
 
     // Await only the 3 primary sources first
     const [crossRefResult, ssResult, oaResult] = await Promise.all([crossRefPromise, ssPromise, oaPromise]);
