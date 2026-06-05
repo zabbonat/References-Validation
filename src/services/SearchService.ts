@@ -156,7 +156,7 @@ const extractLikelyTitle = (rawRef: string): string | null => {
 // Below this threshold, the result is treated as "Not Found" rather than showing a different paper
 const MIN_TITLE_SIMILARITY = 70; // Minimum title similarity to consider a match
 
-export const normalize = (str: string): string => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
+export const normalize = (str: string): string => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\w\s]/g, '').trim();
 
 // Levenshtein distance for string similarity
 const levenshteinDistance = (a: string, b: string): number => {
