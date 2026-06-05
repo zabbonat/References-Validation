@@ -67,12 +67,12 @@ export const searchOpenAlex = async (title: string, expectedYear?: string): Prom
     try {
         const encodedTitle = encodeURIComponent(title);
 
+        // Use mailto query parameter for polite pool instead of User-Agent header which is forbidden in browsers
         const response = await fetch(
-            `https://api.openalex.org/works?filter=title.search:${encodedTitle}&per_page=5`,
+            `https://api.openalex.org/works?filter=title.search:${encodedTitle}&per_page=5&mailto=contact@example.com`,
             {
                 headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': 'CheckIfExist/1.0 (mailto:contact@example.com)'
+                    'Accept': 'application/json'
                 }
             }
         );
