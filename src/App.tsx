@@ -939,7 +939,7 @@ Or Numbered/Plain text:
       {/* Visitor Counter & Cite - bottom left */}
       <div className="fixed bottom-4 left-4 flex items-center space-x-2">
         <img
-          src="https://visitor-badge.laobi.icu/badge?page_id=zabbonat.checkifexist"
+          src="https://api.visitorbadge.io/api/visitors?path=zabbonat.checkifexist&countColor=%23263759"
           alt="Visitors"
           className="h-6"
         />
