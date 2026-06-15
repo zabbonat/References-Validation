@@ -634,7 +634,16 @@ function App() {
               >
                 ← Back
               </button>
-              <div className="border-l border-slate-300 h-6 mx-2"></div>
+              <div className="border-l border-slate-300 dark:border-slate-600 h-6 mx-2"></div>
+              <a 
+                href="https://github.com/zabbonat/References-Validation"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:flex items-center hover:opacity-80 transition-opacity"
+                title="Star on GitHub"
+              >
+                <img src="https://img.shields.io/github/stars/zabbonat/References-Validation?style=social&label=Leave%20a%20star" alt="GitHub stars" />
+              </a>
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
@@ -793,6 +802,16 @@ function App() {
           </button>
         </div>
         <div className="flex items-center space-x-2">
+          <a 
+            href="https://github.com/zabbonat/References-Validation"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:flex items-center hover:opacity-80 transition-opacity"
+            title="Star on GitHub"
+          >
+            <img src="https://img.shields.io/github/stars/zabbonat/References-Validation?style=social&label=Leave%20a%20star" alt="GitHub stars" />
+          </a>
+          <div className="hidden sm:block border-l border-slate-300 dark:border-slate-600 h-6 mx-2"></div>
           <button
             onClick={() => setDarkMode(!darkMode)}
             className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 dark:text-slate-400 rounded-lg transition-colors"
