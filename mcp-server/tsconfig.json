@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "declaration": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "paths": {
+      "../vendors/bibtexParse.js": ["../src/vendors/bibtexParse.js"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "../src/services/**/*.ts",
+    "../src/vendors/**/*.js"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

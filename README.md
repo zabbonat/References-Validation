@@ -28,6 +28,54 @@
   - APA, MLA, ISO 690, and BibTeX: Get the correct citations instantly.
   - In-line Editing: Directly edit the generated reference formats within the result card before copying or downloading.
 
+## 🤖 Use as an MCP Server
+
+You can use CheckIfExist directly inside AI assistants like **Claude Desktop** or **VS Code Copilot** through the Model Context Protocol (MCP). This allows the AI to automatically verify references against our databases while you chat.
+
+### How to install
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/zabbonat/References-Validation.git
+   cd References-Validation/mcp-server
+   npm install
+   ```
+
+2. Add the server to your AI client's configuration:
+
+   **For Claude Desktop** (edit `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+   ```json
+   {
+     "mcpServers": {
+       "checkifexist": {
+         "command": "npx",
+         "args": ["tsx", "/absolute/path/to/References-Validation/mcp-server/src/index.ts"]
+       }
+     }
+   }
+   ```
+
+   **For VS Code Copilot** (edit `.vscode/settings.json`):
+   ```json
+   {
+     "github.copilot.chat.mcpServers": {
+       "checkifexist": {
+         "command": "npx",
+         "args": ["tsx", "/absolute/path/to/References-Validation/mcp-server/src/index.ts"]
+       }
+     }
+   }
+   ```
+
+3. Restart your AI client.
+
+### How it works
+
+Once configured, just ask the AI normally:
+> "Check if these references are real: [paste bibliography]"
+
+The AI will automatically run the CheckIfExist engine in the background and return verified metadata, warning you about fake authors, mismatched years, or retracted papers.
+
 ## 🛠 **Run Locally**
 
 If you want to run the code yourself:

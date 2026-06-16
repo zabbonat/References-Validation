@@ -1,0 +1,288 @@
+#!/usr/bin/env node
+/**
+ * CheckIfExist MCP Server
+ * 
+ * Exposes the CheckIfExist reference verification engine as an MCP tool.
+ * Verifies academic references against CrossRef, Semantic Scholar, OpenAlex, arXiv, and DBLP.
+ * 
+ * Usage:
+ *   npx tsx src/index.ts          # Development
+ *   node dist/index.js            # Production (after npm run build)
+ */
+
+// === POLYFILLS — must come before any service import ===
+import './dom-polyfill.js';
+import './fetch-patch.js';
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
+
+// Import services from the parent project
+import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from '../../src/services/SearchService.js';
+import { parseBibTex } from '../../src/services/BibTexService.js';
+import { parsePlainTextRefs, parseGeneric } from '../../src/services/PlainTextParser.js';
+
+// ============================================================
+// Helper: detect if input is BibTeX
+// ============================================================
+const isBibTeX = (text: string): boolean => /^\s*@\w+\s*\{/m.test(text);
+
+// ============================================================
+// Helper: sleep for rate limiting
+// ============================================================
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ============================================================
+// Helper: classify a CheckResult
+// ============================================================
+type Status = 'verified' | 'partial_match' | 'mismatch' | 'not_found';
+
+const classifyResult = (r: CheckResult): Status => {
+    if (!r.exists || r.source === 'NotFound') return 'not_found';
+    if (r.matchConfidence >= 80) return 'verified';
+    if (r.matchConfidence >= 50) return 'partial_match';
+    return 'mismatch';
+};
+
+// ============================================================
+// Helper: format a single result for display
+// ============================================================
+const formatResultText = (ref: string, result: CheckResult, index?: number): string => {
+    const status = classifyResult(result);
+    const statusEmoji: Record<Status, string> = {
+        verified: '✅',
+        partial_match: '⚠️',
+        mismatch: '❌',
+        not_found: '🔍'
+    };
+    const statusLabel: Record<Status, string> = {
+        verified: 'Verified',
+        partial_match: 'Partial Match',
+        mismatch: 'Mismatch',
+        not_found: 'Not Found'
+    };
+
+    const lines: string[] = [];
+    const prefix = index !== undefined ? `[${index + 1}] ` : '';
+    lines.push(`${prefix}${statusEmoji[status]} **${statusLabel[status]}** (confidence: ${result.matchConfidence}%)`);
+    lines.push(`   Input: ${ref.substring(0, 120)}${ref.length > 120 ? '…' : ''}`);
+
+    if (result.exists && result.source !== 'NotFound') {
+        if (result.title) lines.push(`   Title: ${result.title}`);
+        if (result.authors) lines.push(`   Authors: ${result.authors}`);
+        if (result.year) lines.push(`   Year: ${result.year}`);
+        if (result.journal) lines.push(`   Journal/Venue: ${result.journal}`);
+        if (result.doi) lines.push(`   DOI: https://doi.org/${result.doi}`);
+        if (result.url && !result.doi) lines.push(`   URL: ${result.url}`);
+        if (result.citations !== undefined) lines.push(`   Citations: ${result.citations}`);
+        lines.push(`   Source: ${result.source}`);
+        if (result.retracted) lines.push(`   🚨 **RETRACTED/WITHDRAWN**`);
+    }
+
+    if (result.issues.length > 0) {
+        lines.push(`   Issues: ${result.issues.join('; ')}`);
+    }
+
+    return lines.join('\n');
+};
+
+// ============================================================
+// Create MCP Server
+// ============================================================
+const server = new McpServer({
+    name: 'checkifexist',
+    version: '1.0.0',
+});
+
+// ============================================================
+// Tool: check_references
+// ============================================================
+server.tool(
+    'check_references',
+    `Verify academic/scholarly references for authenticity. Checks citations against CrossRef, Semantic Scholar, OpenAlex, arXiv, and DBLP databases. Detects hallucinated, fake, or inaccurate references.
+
+Accepts plain text references (one per line), BibTeX entries, or a single reference. For each reference, returns: verification status (verified/partial/mismatch/not found), match confidence, found metadata (title, authors, year, journal, DOI), issues detected (author mismatch, year mismatch, retraction alerts), and formatted citations (APA, MLA, ISO 690, BibTeX).
+
+Use this tool whenever you need to:
+- Verify if citations in a paper are real
+- Check a bibliography for hallucinated references
+- Validate references generated by AI
+- Cross-check citation metadata (authors, year, journal)`,
+    {
+        references: z.string().describe(
+            'One or more references to verify. Supports: plain text (one reference per line), BibTeX format (@article{...}), or a single reference string. Examples: "Vaswani, A. et al. (2017). Attention is all you need." or a full BibTeX entry.'
+        ),
+    },
+    async ({ references }) => {
+        try {
+            // Parse references
+            interface RefToCheck {
+                raw: string;
+                searchQuery: string;
+                expected?: {
+                    title?: string;
+                    authors?: string;
+                    journal?: string;
+                    year?: string;
+                };
+            }
+
+            const refsToCheck: RefToCheck[] = [];
+
+            if (isBibTeX(references)) {
+                // Parse BibTeX
+                const parsed = parseBibTex(references);
+                for (const entry of parsed) {
+                    const tags = entry.entryTags;
+                    const title = tags.title?.replace(/[{}]/g, '').trim() || '';
+                    const authors = tags.author?.replace(/[{}]/g, '').trim() || '';
+                    const year = tags.year?.trim() || '';
+                    const journal = tags.journal?.replace(/[{}]/g, '').trim() || '';
+
+                    const searchQuery = title || `${authors} ${year} ${title}`.trim();
+                    refsToCheck.push({
+                        raw: `@${entry.entryType}{${entry.citationKey}, title={${title}}, author={${authors}}, year={${year}}}`,
+                        searchQuery,
+                        expected: { title, authors, journal, year },
+                    });
+                }
+            } else {
+                // Plain text — split by lines
+                const lines = references
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 10);
+
+                if (lines.length === 1) {
+                    // Single reference — use parseGeneric for metadata extraction
+                    const parsed = parseGeneric(lines[0]);
+                    refsToCheck.push({
+                        raw: lines[0],
+                        searchQuery: parsed.title || lines[0],
+                        expected: parsed.title ? {
+                            title: parsed.title,
+                            authors: parsed.authors,
+                            journal: parsed.journal,
+                            year: parsed.year,
+                        } : undefined,
+                    });
+                } else {
+                    // Multiple references
+                    const parsed = parsePlainTextRefs(references);
+                    for (const ref of parsed) {
+                        refsToCheck.push({
+                            raw: ref.raw,
+                            searchQuery: ref.title || ref.raw,
+                            expected: ref.title ? {
+                                title: ref.title,
+                                authors: ref.authors,
+                                journal: ref.journal,
+                                year: ref.year,
+                            } : undefined,
+                        });
+                    }
+                }
+            }
+
+            if (refsToCheck.length === 0) {
+                return {
+                    content: [{
+                        type: 'text' as const,
+                        text: 'No valid references found in the input. Please provide at least one reference (plain text, numbered list, or BibTeX format).',
+                    }],
+                };
+            }
+
+            // Check all references
+            const results: Array<{ ref: string; result: CheckResult }> = [];
+
+            for (let i = 0; i < refsToCheck.length; i++) {
+                const r = refsToCheck[i];
+
+                // Log progress for batch operations
+                if (refsToCheck.length > 1) {
+                    process.stderr.write(`[CheckIfExist] Checking ${i + 1}/${refsToCheck.length}: ${r.searchQuery.substring(0, 60)}...\n`);
+                }
+
+                const result = await checkWithFallback(
+                    r.searchQuery,
+                    r.expected,
+                    r.expected ? r.raw : undefined
+                );
+
+                results.push({ ref: r.raw, result });
+
+                // Rate limiting between requests (except for the last one)
+                if (i < refsToCheck.length - 1) {
+                    await sleep(BATCH_REQUEST_DELAY);
+                }
+            }
+
+            // Format output
+            const outputLines: string[] = [];
+
+            // Summary stats for batch
+            if (results.length > 1) {
+                const stats = {
+                    verified: 0,
+                    partial_match: 0,
+                    mismatch: 0,
+                    not_found: 0,
+                };
+                for (const r of results) {
+                    stats[classifyResult(r.result)]++;
+                }
+
+                outputLines.push(`# Reference Verification Report`);
+                outputLines.push(`**Total: ${results.length}** | ✅ Verified: ${stats.verified} | ⚠️ Partial: ${stats.partial_match} | ❌ Mismatch: ${stats.mismatch} | 🔍 Not Found: ${stats.not_found}`);
+                outputLines.push('---');
+            }
+
+            // Individual results
+            for (let i = 0; i < results.length; i++) {
+                const { ref, result } = results[i];
+                outputLines.push(formatResultText(ref, result, results.length > 1 ? i : undefined));
+                if (i < results.length - 1) outputLines.push('');
+            }
+
+            // Add JSON data as a second content block for programmatic use
+            const jsonData = results.map(r => ({
+                input: r.ref,
+                status: classifyResult(r.result),
+                ...r.result,
+            }));
+
+            return {
+                content: [
+                    { type: 'text' as const, text: outputLines.join('\n') },
+                    { type: 'text' as const, text: '\n\n<details><summary>Raw JSON data</summary>\n\n```json\n' + JSON.stringify(jsonData, null, 2) + '\n```\n</details>' },
+                ],
+            };
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            return {
+                content: [{
+                    type: 'text' as const,
+                    text: `Error checking references: ${errorMessage}`,
+                }],
+                isError: true,
+            };
+        }
+    }
+);
+
+// ============================================================
+// Start server
+// ============================================================
+async function main() {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    process.stderr.write('[CheckIfExist MCP] Server started on stdio\n');
+}
+
+main().catch((error) => {
+    process.stderr.write(`[CheckIfExist MCP] Fatal error: ${error}\n`);
+    process.exit(1);
+});
