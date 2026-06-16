@@ -194,6 +194,16 @@ Use this tool whenever you need to:
                 };
             }
 
+            if (refsToCheck.length > 15) {
+                return {
+                    content: [{
+                        type: 'text' as const,
+                        text: `Error: Batch too large (${refsToCheck.length} references). Claude Desktop has a 60-second timeout for tool execution. To prevent timeouts, this tool accepts a maximum of 15 references per call. Please split your bibliography into smaller chunks (e.g., 10-15 references at a time) and call this tool multiple times.`,
+                    }],
+                    isError: true,
+                };
+            }
+
             // Check all references
             const results: Array<{ ref: string; result: CheckResult }> = [];
 
