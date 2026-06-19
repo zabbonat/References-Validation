@@ -142,7 +142,12 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                 <div className="flex flex-col md:flex-row">
                     {/* LEFT: What the user inserted */}
                     <div className="flex-1 p-4 border-r border-slate-100">
-                        <div className="text-xs font-semibold text-slate-400 uppercase mb-2">Your Input</div>
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="text-xs font-semibold text-slate-400 uppercase">Your Input</div>
+                            {(!result.exists || result.matchConfidence <= 80) && (
+                                <CopyButton text={reference} label="Copy Original Text" />
+                            )}
+                        </div>
                         <div className="text-sm text-slate-700 dark:text-slate-300/90 whitespace-pre-wrap break-words leading-relaxed">
                             {reference}
                         </div>
