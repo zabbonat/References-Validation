@@ -499,7 +499,8 @@ function App() {
     const notFound = results.filter(r => !r.result!.exists).length;
     const withIssues = results.filter(r => r.result!.issues.length > 0).length;
     const retracted = results.filter(r => r.result!.retracted).length;
-    return { verified, partial, mismatch, notFound, withIssues, retracted, total: results.length };
+    const predatory = results.filter(r => r.result!.predatory).length;
+    return { verified, partial, mismatch, notFound, withIssues, retracted, predatory, total: results.length };
   }, [allBatchDone, batchResults]);
 
   // Filter batch results
@@ -727,6 +728,11 @@ function App() {
               {stats.retracted > 0 && (
                 <span className="flex items-center space-x-1 px-2.5 py-1 bg-red-200 text-red-800 dark:text-rose-400 rounded-full font-bold">
                   <span>⚠ {stats.retracted} Retracted</span>
+                </span>
+              )}
+              {stats.predatory > 0 && (
+                <span className="flex items-center space-x-1 px-2.5 py-1 bg-orange-200 text-orange-800 dark:text-orange-400 rounded-full font-bold">
+                  <span>⚠ {stats.predatory} Predatory</span>
                 </span>
               )}
               <span className="text-slate-400">Total: {stats.total}</span>

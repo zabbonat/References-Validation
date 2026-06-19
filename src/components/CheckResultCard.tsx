@@ -81,7 +81,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
     const [isEditing, setIsEditing] = useState(false);
 
     return (
-        <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : ''}`}>
+        <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : result?.predatory ? 'border-orange-400 border-2 dark:border-orange-500/30' : ''}`}>
             {/* Header bar with status + source */}
             {!loading && result && (
                 <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-[#0B1120] border-b dark:border-slate-700/50">
@@ -166,6 +166,12 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                     <div className="p-3 mb-2 bg-red-600 text-white font-bold rounded-md flex items-center space-x-2 shadow-sm border border-red-700">
                                         <AlertTriangle size={20} className="animate-pulse" />
                                         <span className="text-sm uppercase tracking-wider">Warning: This Article Has Been Retracted</span>
+                                    </div>
+                                )}
+                                {result.predatory && (
+                                    <div className="p-3 mb-2 bg-orange-600 text-white font-bold rounded-md flex items-center space-x-2 shadow-sm border border-orange-700">
+                                        <AlertTriangle size={20} />
+                                        <span className="text-sm uppercase tracking-wider">Attenzione: Questa fonte proviene da una rivista considerata predatoria</span>
                                     </div>
                                 )}
                                 {/* Editable format tabs */}

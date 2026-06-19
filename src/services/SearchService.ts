@@ -2,6 +2,7 @@ import { searchSemanticScholar, formatSemanticScholarAPA, generateSemanticSchola
 import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX, formatOpenAlexMLA, formatOpenAlexISO690 } from './OpenAlexService';
 import { searchArxiv, resolveArxivById, formatArxivAPA, formatArxivMLA, formatArxivISO690, generateArxivBibTeX } from './ArxivService';
 import { searchDblp, formatDblpAPA, formatDblpMLA, formatDblpISO690, generateDblpBibTeX } from './DblpService';
+import { isPredatory } from './PredatoryService';
 
 export interface CheckResult {
     exists: boolean;
@@ -13,6 +14,7 @@ export interface CheckResult {
     doi?: string;
     score?: number; // CrossRef score
     retracted?: boolean; // Whether the paper has been retracted
+    predatory?: boolean; // Whether the paper is from a predatory journal
 
     // Formatted Output
     apa?: string;
@@ -1160,7 +1162,7 @@ const extractArxivId = (text: string): string | null => {
  * If a DOI or arXiv ID is present, resolves directly for 100% accuracy.
  * Picks the best result across all sources using a unified scoring function.
  */
-export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
+const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
     // ===== DOI DIRECT LOOKUP =====
     // If the query or expected metadata contains a DOI, try direct resolution first
     const queryDOI = extractDOI(originalQuery || query);
@@ -1594,4 +1596,14 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         journalMatchScore: 0,
         issues: ['Title not found in any source (CrossRef, Semantic Scholar, OpenAlex, DBLP, arXiv)']
     };
+};
+
+export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
+    const result = await _checkWithFallback(query, expected, originalQuery);
+    if (result.exists && result.journal) {
+        if (isPredatory(result.journal)) {
+            result.predatory = true;
+        }
+    }
+    return result;
 };
