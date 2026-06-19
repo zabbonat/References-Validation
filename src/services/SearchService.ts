@@ -1600,8 +1600,9 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
 
 export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
     const result = await _checkWithFallback(query, expected, originalQuery);
-    if (result.exists && result.journal) {
-        if (isPredatory(result.journal)) {
+    const journalToCheck = result.journal || expected?.journal;
+    if (journalToCheck) {
+        if (isPredatory(journalToCheck)) {
             result.predatory = true;
         }
     }

@@ -278,6 +278,12 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                             </div>
                         ) : (
                             <div className="space-y-3">
+                                {result.predatory && (
+                                    <div className="p-3 mb-2 bg-orange-600 text-white font-bold rounded-md flex items-center space-x-2 shadow-sm border border-orange-700">
+                                        <AlertTriangle size={20} />
+                                        <span className="text-sm uppercase tracking-wider">Attenzione: Questa fonte proviene da una rivista considerata predatoria</span>
+                                    </div>
+                                )}
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
                                     No matching reference found in CrossRef, Semantic Scholar, OpenAlex, DBLP, or arXiv.
                                 </p>

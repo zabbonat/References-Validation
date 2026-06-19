@@ -46,6 +46,14 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   journal={Nature},
   volume={505},
   year={2014}
+}
+
+% NOTE: This paper is published in a known predatory journal
+@article{predatory2023example,
+  title={An Analysis of Emerging Trends in Computer Science},
+  author={Smith, John and Doe, Jane},
+  journal={International Journal of Advanced Research},
+  year={2023}
 }`;
 
 // Electron IPC (mocked for web if not present)
