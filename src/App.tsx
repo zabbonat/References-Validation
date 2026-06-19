@@ -82,6 +82,7 @@ type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'notfound' | 'is
 
 interface BatchItem {
   ref: string;
+  rawRef?: string;
   result?: CheckResult;
   loading: boolean;
   duplicateOf?: number;
@@ -368,8 +369,19 @@ function App() {
         const journal = p.entryTags.journal ? ` ${p.entryTags.journal}.` : '';
         const year = p.entryTags.year ? ` (${p.entryTags.year})` : '';
 
+        const escapedKey = p.citationKey ? p.citationKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') : '';
+        let rawRef = '';
+        if (escapedKey) {
+          const regex = new RegExp(`@[a-zA-Z]+\\s*\\{\\s*${escapedKey}\\s*,[\\s\\S]*?(?=\\n[ \\t]*@|$)`, 'i');
+          const match = cleanedInput.match(regex);
+          if (match) {
+            rawRef = match[0].trim();
+          }
+        }
+
         return {
           ref: `${title}.${author}${journal}${year}`,
+          rawRef: rawRef,
           loading: true
         };
       });
@@ -419,6 +431,7 @@ function App() {
 
       const initialResults: BatchItem[] = plainRefs.map((r, i) => ({
         ref: r.raw,
+        rawRef: r.raw,
         loading: true,
         duplicateOf: duplicateOfMap.get(i)
       }));
@@ -752,6 +765,7 @@ function App() {
               <CheckResultCard 
                 key={i} 
                 reference={item.ref} 
+                rawRef={item.rawRef}
                 result={item.result} 
                 loading={item.loading}
                 duplicateOf={item.duplicateOf}

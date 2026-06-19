@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, ExternalLink, Search, Copy, Check, AlertTriangle,
 
 interface Props {
     reference: string;
+    rawRef?: string;
     result?: CheckResult;
     loading?: boolean;
     duplicateOf?: number; // ref number of the duplicate
@@ -75,7 +76,7 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
     );
 };
 
-export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, duplicateOf, onUpdateResult }) => {
+export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, loading, duplicateOf, onUpdateResult }) => {
     const [activeTab, setActiveTab] = useState<'apa'|'mla'|'iso690'|'bibtex'>('apa');
     const [isEditing, setIsEditing] = useState(false);
 
@@ -145,11 +146,11 @@ export const CheckResultCard: React.FC<Props> = ({ reference, result, loading, d
                         <div className="flex justify-between items-start mb-2">
                             <div className="text-xs font-semibold text-slate-400 uppercase">Your Input</div>
                             {(!result.exists || result.matchConfidence <= 80) && (
-                                <CopyButton text={reference} label="Copy Original Text" />
+                                <CopyButton text={rawRef || reference} label="Copy Original Text" />
                             )}
                         </div>
-                        <div className="text-sm text-slate-700 dark:text-slate-300/90 whitespace-pre-wrap break-words leading-relaxed">
-                            {reference}
+                        <div className="text-sm text-slate-700 dark:text-slate-300/90 whitespace-pre-wrap break-words leading-relaxed font-mono">
+                            {rawRef || reference}
                         </div>
                     </div>
 
