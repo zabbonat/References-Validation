@@ -171,7 +171,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                 {result.predatory && (
                                     <div className="p-3 mb-2 bg-orange-600 text-white font-bold rounded-md flex items-center space-x-2 shadow-sm border border-orange-700">
                                         <AlertTriangle size={20} />
-                                        <span className="text-sm uppercase tracking-wider">Attenzione: Questa fonte proviene da una rivista considerata predatoria</span>
+                                        <span className="text-sm uppercase tracking-wider">Warning: This source is from a known predatory journal</span>
                                     </div>
                                 )}
                                 {/* Editable format tabs */}
@@ -281,7 +281,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                 {result.predatory && (
                                     <div className="p-3 mb-2 bg-orange-600 text-white font-bold rounded-md flex items-center space-x-2 shadow-sm border border-orange-700">
                                         <AlertTriangle size={20} />
-                                        <span className="text-sm uppercase tracking-wider">Attenzione: Questa fonte proviene da una rivista considerata predatoria</span>
+                                        <span className="text-sm uppercase tracking-wider">Warning: This source is from a known predatory journal</span>
                                     </div>
                                 )}
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
