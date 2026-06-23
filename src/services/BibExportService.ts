@@ -136,7 +136,10 @@ export const downloadExcelFile = async (results: { ref: string; result?: CheckRe
             'Found Journal': '',
             'DOI': '',
             'Confidence (%)': '',
-            'Issues': ''
+            'Issues': '',
+            'Retracted': '',
+            'Predatory': '',
+            'Source': ''
         };
 
         const status = !r.exists ? 'Not Found' 
@@ -154,7 +157,10 @@ export const downloadExcelFile = async (results: { ref: string; result?: CheckRe
             'Found Journal': r.journal || '',
             'DOI': r.doi || '',
             'Confidence (%)': r.exists ? r.matchConfidence : 0,
-            'Issues': r.issues ? r.issues.join('; ') : ''
+            'Issues': r.issues ? r.issues.join('; ') : '',
+            'Retracted': r.retracted ? 'YES' : 'NO',
+            'Predatory': r.predatory ? 'YES' : 'NO',
+            'Source': r.source || ''
         };
     });
 
@@ -168,9 +174,12 @@ export const downloadExcelFile = async (results: { ref: string; result?: CheckRe
         { wch: 30 },  // Found Authors
         { wch: 10 },  // Found Year
         { wch: 20 },  // Found Journal
-        { wch: 20 },  // DOI
+        { wch: 15 },  // DOI
         { wch: 15 },  // Confidence
-        { wch: 40 }   // Issues
+        { wch: 40 },  // Issues
+        { wch: 12 },  // Retracted
+        { wch: 12 },  // Predatory
+        { wch: 15 }   // Source
     ];
 
     const workbook = XLSX.utils.book_new();
