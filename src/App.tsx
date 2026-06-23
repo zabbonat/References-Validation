@@ -17,13 +17,13 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   year={2015}
 }
 
-% NOTE: This entry is intentionally wrong (wrong year and journal) to demonstrate error detection
 @article{goodfellow2014generative,
   title={Generative Adversarial Nets},
   author={Goodfellow, Ian and Pouget-Abadie, Jean and Mirza, Mehdi and Xu, Bing and Warde-Farley, David and Ozair, Sherjil and Courville, Aaron and Bengio, Yoshua},
   journal={Nature},
   year={2016}
 }
+% NOTE: This entry is intentionally wrong (wrong year and journal) to demonstrate error detection
 
 @article{krizhevsky2012imagenet,
   title={ImageNet Classification with Deep Convolutional Neural Networks},
@@ -39,7 +39,6 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   year={2016}
 }
 
-% NOTE: This is a highly cited biology/medical paper that was RETRACTED
 @article{obokata2014stap,
   title={Stimulus-triggered fate conversion of somatic cells into pluripotency},
   author={Obokata, Haruko and Wakayama, Teruhiko and Sasai, Yoshiki and Kojima, Koji and Vacanti, Martin P and Niwa, Hitoshi and Yamato, Masayuki and Vacanti, Charles A},
@@ -47,14 +46,18 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   volume={505},
   year={2014}
 }
+% NOTE: This is a highly cited biology/medical paper that was RETRACTED
 
-% NOTE: This paper is published in a known predatory journal
-@article{predatory2023example,
-  title={An Analysis of Emerging Trends in Computer Science},
-  author={Smith, John and Doe, Jane},
+@article{sharma2017study,
+  title={A Study on the Effectiveness of Co-operative Learning in Mathematics},
+  author={Sharma, S. N.},
   journal={International Journal of Advanced Research},
-  year={2023}
-}`;
+  volume={5},
+  number={3},
+  pages={120--125},
+  year={2017}
+}
+% NOTE: This paper is published in a known predatory journal`;
 
 // Electron IPC (mocked for web if not present)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
