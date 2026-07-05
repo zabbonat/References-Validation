@@ -1,11 +1,8 @@
-# CheckIfExist Reviewer's Copilot: Official Replication Package
-
+# CheckIfExist Reviewer's Copilot
 This repository contains the complete open scientometric replication package for the research article:
 
-> **"Extraction Artifacts, Not Hallucination Epidemics, Explain the Apparent Rise of Unverifiable Citations in Published Scientific Proceedings"**  
+> **CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content**  
 > *Author:* Diletta Abbonato (CPS Department, University of Turin, Italy)  
-> *Target Journal:* Scientometrics (Springer)
-
 ---
 
 ## Repository Structure
