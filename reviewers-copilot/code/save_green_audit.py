@@ -1,3 +1,18 @@
+"""
+RETRACTED. The output of this script was never an audit and must not be used.
+
+It draws a sample of verified references and then assigns the same verdict,
+"Authentic Existing Publication", to every row by constant assignment, before
+any inspection takes place. The file it produced, Green_Sample_Audit_500.xlsx,
+therefore carries no evidence about the references it lists.
+
+The audit that replaces it is code/audit_stage_c.py, which verifies each
+sampled reference independently against four bibliographic sources and records
+the identifier behind every verdict. See output/README.md for the full account.
+
+Retained unmodified so that the record of what happened stays inspectable.
+"""
+
 import pandas as pd
 
 print("Loading dataset...")
