@@ -1,8 +1,25 @@
 % =====================================================================
+% SUPERSEDED. DO NOT CITE OR SUBMIT THIS FILE.
+%
+% The current manuscript is output/main.tex. This version is retained only
+% so that the revision history remains inspectable, and it contains several
+% claims that were checked against the data and did not survive:
+%
+%   * It states that references were extracted with GROBID 0.7.3 into
+%     TEI-XML via <listBibl> nodes. No GROBID is used anywhere in this
+%     project. Extraction is code/analyze_dataset.py, which uses PyMuPDF
+%     and a regular-expression segmenter.
+%   * It reports 1,634 papers (618/545/276/195 by cohort). The dataset
+%     contains 919 papers (383/289/136/111). Mean references per paper is
+%     24.5, not 13.7.
+%   * Its abstract reports 98.5% recall at a 0.5% false-positive rate.
+%     Those figures are not reproducible from the released prediction
+%     files, which give the values in output/main.tex Table 1.
+%   * Its audit section rests on annotation files that were generated
+%     programmatically rather than coded. See output/README.md.
+%
+% =====================================================================
 % CheckIfExist, Scientometrics submission, v2 (full rewrite)
-% Register: Ash-style (short declaratives, active voice, numbers early,
-% minimal hedging). No em dashes anywhere.
-% All open TODOs resolved against empirical project datasets.
 % =====================================================================
 
 \documentclass[11pt, a4paper]{article}
