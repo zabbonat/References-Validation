@@ -3,6 +3,11 @@ import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX, formatOpenAl
 import { searchArxiv, resolveArxivById, formatArxivAPA, formatArxivMLA, formatArxivISO690, generateArxivBibTeX } from './ArxivService';
 import { searchDblp, formatDblpAPA, formatDblpMLA, formatDblpISO690, generateDblpBibTeX } from './DblpService';
 import { isPredatory } from './PredatoryService';
+import { foldText } from './TextNormalize';
+import {
+    titleSurplus, segmentBeforeTitle, authorAgreement, yearGap,
+    classifyEntry, hasWebLink, metadataAgreement, checkRepository,
+} from './CitationChecks';
 
 export interface CheckResult {
     exists: boolean;
@@ -36,8 +41,19 @@ export interface CheckResult {
     // Enrichment
     citations?: number;
 
-    source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'Arxiv' | 'DBLP' | 'NotFound';
+    source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'Arxiv' | 'DBLP' | 'DataCite' | 'Web' | 'NotFound';
     fallbackSource?: 'SemanticScholar' | 'OpenAlex' | 'Arxiv' | 'DBLP'; // Source of correction
+
+    // Full author names of the selected record, used by the agreement checks
+    authorList?: string[];
+    // Why a reference was not verified, when the reason is not "not found":
+    //   merged_entries   several references run together by the PDF segmenter
+    //   not_a_reference  body text, a formula or a table
+    //   web_resource     a web page, which bibliographic databases do not index
+    // or how it was verified, when not by title:
+    //   metadata_match   first author, volume, page and year (no title given)
+    //   repository       a software or data repository that exists at the cited URL
+    reason?: 'merged_entries' | 'not_a_reference' | 'web_resource' | 'metadata_match' | 'repository';
 }
 
 // Rate limiting delay between batch requests (ms)
@@ -158,7 +174,23 @@ const extractLikelyTitle = (rawRef: string): string | null => {
 // Below this threshold, the result is treated as "Not Found" rather than showing a different paper
 const MIN_TITLE_SIMILARITY = 70; // Minimum title similarity to consider a match
 
-export const normalize = (str: string): string => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\w\s]/g, '').trim();
+export const normalize = (str: string): string => foldText(str);
+
+// Crossref stores many subtitles separately from the title
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const crossrefTitle = (item: any): string => {
+    const t: string = item.title?.[0] || '';
+    const sub: string = item.subtitle?.[0] || '';
+    return sub && !foldText(t).includes(foldText(sub)) ? `${t}: ${sub}` : t;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const crossrefAuthors = (item: any): string[] =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (item.author || []).map((a: any) => [a.given, a.family].filter(Boolean).join(' ') || a.name || '').filter(Boolean);
+
+// "et al." and the APA 7 ellipsis both mark a truncated author list
+const TRUNCATED_AUTHORS = /\bet\s*al\b|\band\s+others\b|\u2026|\.\.\./i;
 
 // Levenshtein distance for string similarity
 const levenshteinDistance = (a: string, b: string): number => {
@@ -191,8 +223,8 @@ const levenshteinDistance = (a: string, b: string): number => {
  * → ~100% instead of ~75% with Levenshtein
  */
 const wordOverlapSimilarity = (str1: string, str2: string): number => {
-    const words1 = str1.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 0);
-    const words2 = str2.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+    const words1 = foldText(str1).split(/\s+/).filter(w => w.length > 0);
+    const words2 = foldText(str2).split(/\s+/).filter(w => w.length > 0);
     if (words1.length === 0 || words2.length === 0) return 0;
 
     const set1 = new Set(words1);
@@ -271,7 +303,7 @@ export const computeAuthorSim = (expectedAuthorsStr: string, resultAuthors: stri
     
     if (validAuthors === 0) return 100;
 
-    const hasEtAl = /et\s*al|and\s*others/i.test(expectedAuthorsStr);
+    const hasEtAl = TRUNCATED_AUTHORS.test(expectedAuthorsStr);
     if (hasEtAl && matchCount > 0) {
         return 100;
     }
@@ -470,7 +502,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             let bestCombinedScore = -1;
 
             for (const item of items) {
-                const iTitle: string = item.title?.[0] || "";
+                const iTitle: string = crossrefTitle(item);
                 const iYears = getAllYears(item);
                 const iPrimaryYear = getPrimaryYear(item);
                 const iJournal: string = item['container-title']?.[0] || "";
@@ -536,7 +568,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
             // Use the Best Item found
             const item = bestItem;
-            const resultTitle = item.title?.[0] || "";
+            const resultTitle = crossrefTitle(item);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const resultAuthors = (item.author || []).map((a: any) => a.family).join(", ");
             const resultYear = getPrimaryYear(item);
@@ -615,7 +647,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                     // Check 1: Are real authors present?
                     const authorsFound = realAuthorFamilies.filter(author => normExpected.includes(author));
-                    const hasEtAlBatch = /\bet\s+al\.?|and\s+others\b/i.test(expected.authors);
+                    const hasEtAlBatch = TRUNCATED_AUTHORS.test(expected.authors);
 
                     if (authorsFound.length > 0) {
                         if (hasEtAlBatch) {
@@ -664,6 +696,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     const publisherNames = /\b(springer|elsevier|wiley|routledge|sage|cambridge|oxford|harvard|princeton|edward\s+elgar|mcgraw.hill|pearson|academic\s+press|lexington\s+books?|university\s+press|palgrave|macmillan|taylor\s+&?\s*francis|ieee|acm)\b/gi;
                     const cleanExpectedJournal = expected.journal
                         .replace(/^\/\/\s*/, '')              // Remove // prefix (Chinese book chapter)
+                        .replace(/^in:?\s+/i, '')              // "In Proceedings of ...", "In: Journal of ..."
                         .replace(/\.\s*$/, '')                 // Remove trailing dot
                         .replace(publisherNames, '')           // Remove publisher names
                         .replace(/publishing/gi, '')            // Remove "Publishing"
@@ -728,7 +761,10 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 // Free text validation (Quick Check)
                 // Use the full original text for validation (handles retry with extracted title)
                 const nValidation = normalize(validationQuery);
-                const hasEtAl = /\bet\s+al\.?/i.test(validationQuery);
+                const hasEtAl = TRUNCATED_AUTHORS.test(validationQuery);
+                // Year disagreement is scored below, after the overall score is set;
+                // it was previously subtracted before that score was overwritten.
+                let yearPenalty = 0;
 
                 // ===== 1. TITLE =====
                 if (titleSim < 95 && nValidation.includes(nResultTitle)) {
@@ -888,17 +924,17 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                         if (yearDiff <= 2 && resultIsPreprint) {
                             issues.push(`Note: year ${yearsInQuery[0]} vs ${resultYear} (preprint/published version difference)`);
-                            overallSim -= 5;
+                            yearPenalty = 5;
                         } else if (yearDiff <= 2 && titleSim > 80) {
                             // Online-first vs print, common 1-2 year gap
                             issues.push(`Note: year ${yearsInQuery[0]} vs ${resultYear} (likely online-first vs print date)`);
-                            overallSim -= 5;
+                            yearPenalty = 5;
                         } else if (yearDiff === 1 && titleSim > 70) {
                             issues.push(`Year differs by 1: you wrote ${yearsInQuery[0]}, actual is ${resultYear} (possible version difference)`);
-                            overallSim -= 10;
+                            yearPenalty = 10;
                         } else {
                             issues.push(`Year Mismatch: you wrote ${yearsInQuery[0]}, actual is ${resultYear}`);
-                            overallSim -= 25;
+                            yearPenalty = 25;
                         }
                     }
                 }
@@ -918,6 +954,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 if (journalSim === 0 && titleSim > 60) {
                     overallSim -= 15;
                 }
+
+                overallSim -= yearPenalty;
 
                 // Floor at 0
                 overallSim = Math.max(0, overallSim);
@@ -1003,7 +1041,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 titleMatchScore: titleSim,
                 authorMatchScore: authorSim,
                 journalMatchScore: journalSim,
-                issues: issues
+                issues: issues,
+                authorList: crossrefAuthors(item)
             };
         }
 
@@ -1063,12 +1102,14 @@ const resolveByDOI = async (doi: string, expected?: ExpectedMetadata, query?: st
     try {
         const cleanDoi = doi.replace(/^https?:\/\/doi\.org\//i, '').trim();
         const response = await fetch(`https://api.crossref.org/works/${encodeURIComponent(cleanDoi)}`);
-        if (!response.ok) return null;
+        // Crossref registers only its own DOIs; datasets, software and Zenodo
+        // records are registered with DataCite
+        if (!response.ok) return resolveByDataCite(cleanDoi, expected, query);
         const data = await response.json();
         const item = data.message;
         if (!item) return null;
 
-        const resultTitle = item.title?.[0] || '';
+        const resultTitle = crossrefTitle(item);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const resultAuthors = (item.author || []).map((a: any) => a.family).join(', ');
         const resultYear = item['published-print']?.['date-parts']?.[0]?.[0]?.toString()
@@ -1114,9 +1155,52 @@ const resolveByDOI = async (doi: string, expected?: ExpectedMetadata, query?: st
             source: 'CrossRef',
             matchConfidence: matchConfidence,
             titleMatchScore: titleSim,
-            authorMatchScore: 100, // Hardcoded for simplicity as DOI guarantees author if title matches
+            authorMatchScore: 100, // author agreement is checked afterwards, against authorList
             journalMatchScore: 100,
-            issues
+            issues,
+            authorList: crossrefAuthors(item)
+        };
+    } catch {
+        return null;
+    }
+};
+
+const resolveByDataCite = async (doi: string, expected?: ExpectedMetadata, query?: string): Promise<CheckResult | null> => {
+    try {
+        const response = await fetch(`https://api.datacite.org/dois/${encodeURIComponent(doi)}`);
+        if (!response.ok) return null;
+        const a = (await response.json())?.data?.attributes;
+        if (!a) return null;
+        const resultTitle: string = a.titles?.[0]?.title || '';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const authorList: string[] = (a.creators || []).map((c: any) =>
+            c.givenName && c.familyName ? `${c.givenName} ${c.familyName}` : (c.name || '')).filter(Boolean);
+        const publisher = typeof a.publisher === 'string' ? a.publisher : a.publisher?.name;
+        const titleSim = computeTitleSim(expected?.title || query || '', resultTitle);
+        const issues: string[] = [];
+        let matchConfidence = 100;
+        if (titleSim < 70) {
+            matchConfidence = 50;
+            issues.push(`⚠️ Title mismatch with DOI metadata. Found: "${resultTitle}"`);
+        } else if (titleSim < 85) {
+            matchConfidence = 80;
+            issues.push(`Note: Title from DOI slightly differs from input.`);
+        }
+        return {
+            exists: true,
+            title: resultTitle,
+            authors: authorList.join(', '),
+            year: a.publicationYear ? String(a.publicationYear) : '',
+            journal: a.container?.title || publisher || '',
+            url: a.url || `https://doi.org/${doi}`,
+            doi,
+            source: 'DataCite',
+            matchConfidence,
+            titleMatchScore: titleSim,
+            authorMatchScore: 100,
+            journalMatchScore: 100,
+            issues,
+            authorList,
         };
     } catch {
         return null;
@@ -1168,31 +1252,45 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     const queryDOI = extractDOI(originalQuery || query);
     let invalidDoiIssue = '';
 
+    // A resolved identifier establishes which paper it points to, not that the
+    // cited title is that paper's: the title is compared, as on the DOI path.
+    const citedText = originalQuery || query;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fromArxivRecord = (r: any, doi?: string): CheckResult => {
+        const titleSim = Math.max(
+            expected?.title ? computeTitleSim(expected.title, r.title) : 0,
+            computeTitleSim(citedText, r.title)
+        );
+        const differs = titleSim < MIN_TITLE_SIMILARITY;
+        return {
+            exists: true,
+            title: r.title,
+            authors: r.authors.join(', '),
+            authorList: r.authors,
+            year: r.year?.toString() || '',
+            journal: r.category ? `arXiv [${r.category}]` : 'arXiv preprint',
+            url: r.url,
+            doi: doi || r.doi || undefined,
+            apa: formatArxivAPA(r),
+            mla: formatArxivMLA(r),
+            iso690: formatArxivISO690(r),
+            bibtex: generateArxivBibTeX(r),
+            source: 'Arxiv',
+            matchConfidence: differs ? 50 : Math.min(100, titleSim + 5),
+            titleMatchScore: titleSim,
+            authorMatchScore: 100,
+            journalMatchScore: 100,
+            issues: differs ? [`⚠️ The arXiv identifier resolves to a different paper: "${r.title}"`] : []
+        };
+    };
+
     if (queryDOI) {
         // Check if this is an arXiv DOI (10.48550/arXiv.XXXX) — resolve via arXiv directly
         const arxivFromDoi = queryDOI.match(/10\.48550\/arXiv\.([\d.]+)/i);
         if (arxivFromDoi) {
             const arxivDirectResult = await resolveArxivById(arxivFromDoi[1]);
             if (arxivDirectResult) {
-                return {
-                    exists: true,
-                    title: arxivDirectResult.title,
-                    authors: arxivDirectResult.authors.join(', '),
-                    year: arxivDirectResult.year?.toString() || '',
-                    journal: arxivDirectResult.category ? `arXiv [${arxivDirectResult.category}]` : 'arXiv preprint',
-                    url: arxivDirectResult.url,
-                    doi: queryDOI,
-                    apa: formatArxivAPA(arxivDirectResult),
-                    mla: formatArxivMLA(arxivDirectResult),
-                    iso690: formatArxivISO690(arxivDirectResult),
-                    bibtex: generateArxivBibTeX(arxivDirectResult),
-                    source: 'Arxiv',
-                    matchConfidence: 100,
-                    titleMatchScore: 100,
-                    authorMatchScore: 100,
-                    journalMatchScore: 100,
-                    issues: []
-                };
+                return fromArxivRecord(arxivDirectResult, queryDOI);
             }
         }
 
@@ -1210,28 +1308,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     if (arxivId && !queryDOI) { // Skip if we already tried via DOI
         const arxivDirectResult = await resolveArxivById(arxivId);
         if (arxivDirectResult) {
-            const titleSim = expected?.title ? computeTitleSim(expected.title, arxivDirectResult.title) : 90;
-            if (titleSim >= MIN_TITLE_SIMILARITY || !expected?.title) {
-                return {
-                    exists: true,
-                    title: arxivDirectResult.title,
-                    authors: arxivDirectResult.authors.join(', '),
-                    year: arxivDirectResult.year?.toString() || '',
-                    journal: arxivDirectResult.category ? `arXiv [${arxivDirectResult.category}]` : 'arXiv preprint',
-                    url: arxivDirectResult.url,
-                    doi: arxivDirectResult.doi || undefined,
-                    apa: formatArxivAPA(arxivDirectResult),
-                    mla: formatArxivMLA(arxivDirectResult),
-                    iso690: formatArxivISO690(arxivDirectResult),
-                    bibtex: generateArxivBibTeX(arxivDirectResult),
-                    source: 'Arxiv',
-                    matchConfidence: Math.min(100, titleSim + 5),
-                    titleMatchScore: titleSim,
-                    authorMatchScore: 100,
-                    journalMatchScore: 100,
-                    issues: []
-                };
-            }
+            return fromArxivRecord(arxivDirectResult);
         }
     }
 
@@ -1329,6 +1406,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     exists: true,
                     title: ssResult.title,
                     authors: ssResult.authors.join(', '),
+                    authorList: ssResult.authors,
                     year: ssResult.year?.toString() || '',
                     journal: ssResult.venue,
                     url: ssResult.url,
@@ -1375,6 +1453,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     exists: true,
                     title: oaResult.title,
                     authors: oaResult.authors.join(', '),
+                    authorList: oaResult.authors,
                     year: oaResult.year?.toString() || '',
                     journal: oaResult.journal,
                     url: oaResult.url,
@@ -1447,6 +1526,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     exists: true,
                     title: arxivResult.title,
                     authors: arxivResult.authors.join(', '),
+                    authorList: arxivResult.authors,
                     year: arxivResult.year?.toString() || '',
                     journal: arxivResult.category ? `arXiv [${arxivResult.category}]` : 'arXiv preprint',
                     url: arxivResult.url,
@@ -1486,6 +1566,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     exists: true,
                     title: dblpResult.title,
                     authors: dblpResult.authors.join(', '),
+                    authorList: dblpResult.authors,
                     year: dblpResult.year?.toString() || '',
                     journal: dblpResult.venue,
                     url: dblpResult.eeUrl || dblpResult.url,
@@ -1558,7 +1639,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
         const extractedTitle = extractLikelyTitle(query);
         if (extractedTitle && extractedTitle !== query) {
             console.log(`[Retry] All sources failed, retrying with extracted title: "${extractedTitle}"`);
-            const retryResult = await checkWithFallback(extractedTitle, expected, query);
+            const retryResult = await _checkWithFallback(extractedTitle, expected, query);
             if (retryResult.exists) {
                 if (invalidDoiIssue && !retryResult.issues.includes(invalidDoiIssue)) {
                     retryResult.issues.push(invalidDoiIssue);
@@ -1598,8 +1679,157 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     };
 };
 
+const isVerified = (r: CheckResult): boolean => r.exists && r.matchConfidence > 80;
+
+/**
+ * References in styles that give no title (physics, astronomy) cannot be
+ * matched on title. Crossref's bibliographic query is run on the full string
+ * and a record is accepted only on agreement of first author, volume, first
+ * page or article number, and year.
+ */
+const rescueByMetadata = async (text: string): Promise<CheckResult | null> => {
+    try {
+        const response = await fetch(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(text)}&rows=5`);
+        if (!response.ok) return null;
+        const items = (await response.json())?.message?.items || [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const item = items.find((it: any) => metadataAgreement(text, it));
+        if (!item) return null;
+        const year = item['published-print']?.['date-parts']?.[0]?.[0]?.toString()
+            || item.published?.['date-parts']?.[0]?.[0]?.toString()
+            || item.issued?.['date-parts']?.[0]?.[0]?.toString() || '';
+        return {
+            exists: true,
+            title: crossrefTitle(item),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            authors: (item.author || []).map((a: any) => a.family).join(', '),
+            authorList: crossrefAuthors(item),
+            year,
+            journal: item['container-title']?.[0] || '',
+            url: item.URL,
+            doi: item.DOI,
+            apa: formatAPA(item),
+            mla: formatMLA(item),
+            iso690: formatISO690(item),
+            bibtex: generateBibTeX(item),
+            source: 'CrossRef',
+            matchConfidence: 90,
+            titleMatchScore: 0,
+            authorMatchScore: 100,
+            journalMatchScore: 100,
+            issues: ['Confirmed by first author, volume, page and year'],
+            reason: 'metadata_match',
+        };
+    } catch {
+        return null;
+    }
+};
+
+const rescueRepository = async (text: string): Promise<CheckResult | null> => {
+    const repo = await checkRepository(text);
+    if (!repo) return null;
+    return {
+        exists: true,
+        title: repo.name,
+        url: repo.url,
+        source: 'Web',
+        matchConfidence: 85,
+        titleMatchScore: 0,
+        authorMatchScore: 0,
+        journalMatchScore: 0,
+        issues: ['Repository exists at the cited URL. Bibliographic databases do not index software or data repositories; confirm it is the work cited.'],
+        reason: 'repository',
+    };
+};
+
+/**
+ * Three checks on the record the search selected. Each can only lower the
+ * confidence: a verified record whose title the citation extends, whose
+ * authors the citation does not match, or whose year the citation misstates
+ * is shown as a partial match for the user to inspect.
+ */
+const applyAgreementChecks = (result: CheckResult, citedRaw: string | undefined, query: string, expected?: ExpectedMetadata): void => {
+    const cap = (value: number, issue: string) => {
+        result.matchConfidence = Math.min(result.matchConfidence, value);
+        result.issues = [...(result.issues || []), issue];
+    };
+    const recordTitle = result.title || '';
+
+    const surplus = titleSurplus(expected?.title || citedRaw || query, recordTitle);
+    if (surplus.length >= 3) {
+        cap(75, `Cited title adds words not in the record: "${surplus.join(' ')}"`);
+    }
+
+    const authorText = (citedRaw && segmentBeforeTitle(citedRaw, recordTitle)) || expected?.authors || null;
+    const authors = authorAgreement(authorText, result.authorList);
+    // Sources sometimes return incomplete author lists. When the record names
+    // fewer authors than the citation, missing names are weak evidence, and
+    // the check fires only if no cited name appears in the record at all.
+    const recordShorter = (result.authorList?.length ?? 0) < authors.citedCount;
+    if (authors.foreign.length >= 2 && (!recordShorter || authors.matched === 0)) {
+        cap(70, `Cited authors not found in the record: ${authors.foreign.join(', ')}`);
+    }
+
+    const gap = yearGap(expected?.year || citedRaw || query, result.year);
+    const preprint = /arxiv|preprint|biorxiv|medrxiv|ssrn|\bcorr\b/i.test(result.journal || '');
+    if (gap !== null && gap > (preprint ? 3 : 2)) {
+        cap(70, `Cited year differs from the record's (${result.year}) by ${gap} years`);
+    }
+};
+
 export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
-    const result = await _checkWithFallback(query, expected, originalQuery);
+    // Compatibility composition turns typographic ligatures and full-width
+    // forms into plain characters before anything is sent to a search API,
+    // while keeping accented letters composed. A ligature left in the query
+    // makes the APIs miss the paper even when the comparison would match it.
+    query = query.normalize('NFKC');
+    if (originalQuery) originalQuery = originalQuery.normalize('NFKC');
+    if (expected) {
+        expected = {
+            ...expected,
+            title: expected.title?.normalize('NFKC'),
+            authors: expected.authors?.normalize('NFKC'),
+            journal: expected.journal?.normalize('NFKC'),
+        };
+    }
+
+    // The text as the user supplied it. When the caller passes only parsed
+    // fields, the raw text is unknown and the checks that need it are skipped.
+    const citedRaw = originalQuery ?? (expected ? undefined : query);
+    const entry = citedRaw ? classifyEntry(citedRaw) : null;
+
+    let result = await _checkWithFallback(query, expected, originalQuery);
+
+    if (!isVerified(result) && citedRaw && !entry) {
+        const rescued = (await rescueByMetadata(citedRaw)) || (await rescueRepository(citedRaw));
+        if (rescued) result = rescued;
+    }
+
+    if (result.exists && result.reason !== 'repository' && result.reason !== 'metadata_match') {
+        applyAgreementChecks(result, citedRaw, query, expected);
+    }
+
+    if (!isVerified(result) && citedRaw) {
+        if (entry) {
+            return {
+                exists: false,
+                source: 'NotFound',
+                matchConfidence: 0,
+                titleMatchScore: 0,
+                authorMatchScore: 0,
+                journalMatchScore: 0,
+                reason: entry,
+                issues: [entry === 'merged_entries'
+                    ? 'This entry appears to contain several references run together, probably by PDF extraction. Split it and check each reference.'
+                    : 'This entry does not look like a bibliographic reference (running text, a formula or a table), probably picked up by PDF extraction.'],
+            };
+        }
+        if (!result.exists && hasWebLink(citedRaw)) {
+            result.reason = 'web_resource';
+            result.issues = ['Web resource: bibliographic databases do not index web pages. Follow the cited link to confirm it.'];
+        }
+    }
+
     const journalToCheck = result.journal || expected?.journal;
     if (journalToCheck) {
         if (isPredatory(journalToCheck)) {

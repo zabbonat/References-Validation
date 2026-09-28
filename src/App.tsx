@@ -323,7 +323,7 @@ function App() {
           authors: parsedText.authors,
           journal: parsedText.journal,
           year: parsedText.year
-        });
+        }, cleanedText);
       }
     } else {
       const parsedText = parseGeneric(cleanedText);
@@ -333,7 +333,7 @@ function App() {
         authors: parsedText.authors,
         journal: parsedText.journal,
         year: parsedText.year
-      });
+      }, cleanedText);
     }
 
     setQuickResult(result);

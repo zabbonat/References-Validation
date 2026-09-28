@@ -29,3 +29,9 @@ release
 # Python
 __pycache__/
 *.pyc
+
+# evaluation harness
+reviewers-copilot/eval/cache/
+reviewers-copilot/eval/harness/node_modules/
+reviewers-copilot/eval/results/_*
+reviewers-copilot/eval/data/_*

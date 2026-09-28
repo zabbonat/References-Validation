@@ -18,6 +18,8 @@ const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckRes
         'OpenAlex': 'bg-orange-100 text-orange-700',
         'Arxiv': 'bg-red-100 text-red-700',
         'DBLP': 'bg-yellow-100 text-yellow-700',
+        'DataCite': 'bg-teal-100 text-teal-700',
+        'Web': 'bg-slate-200 text-slate-700',
         'NotFound': 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300/90'
     };
 
@@ -103,6 +105,16 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                     <span className="text-xs font-bold">Mismatch / Error</span>
                                 </div>
                             )
+                        ) : result.reason === 'merged_entries' || result.reason === 'not_a_reference' ? (
+                            <div className="flex items-center text-slate-600 dark:text-slate-300 space-x-1">
+                                <AlertTriangle size={16} />
+                                <span className="text-xs font-bold">Extraction problem</span>
+                            </div>
+                        ) : result.reason === 'web_resource' ? (
+                            <div className="flex items-center text-slate-600 dark:text-slate-300 space-x-1">
+                                <AlertTriangle size={16} />
+                                <span className="text-xs font-bold">Web resource: check link</span>
+                            </div>
                         ) : (
                             <div className="flex items-center text-red-600 dark:text-rose-400 space-x-1">
                                 <XCircle size={16} />
