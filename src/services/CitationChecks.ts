@@ -220,17 +220,14 @@ export const hasWebLink = (text: string): boolean => URL_RE.test(text);
 
 // ---------------------------------------------------------------- title-less
 
-// A run of three lowercase words signals title text; physics and astronomy
-// styles that omit the title have none.
-const hasTitleText = (text: string): boolean => {
-    const words = prep(text).replace(/\bet\s+al\b/gi, ' ').split(/[^\p{L}]+/u).filter(Boolean);
-    let run = 0;
-    for (const w of words) {
-        run = /^\p{Ll}{2,}$/u.test(w) && w !== 'and' ? run + 1 : 0;
-        if (run >= 3) return true;
-    }
-    return false;
-};
+// Title text is a stretch of at least four words between punctuation marks.
+// Author lists break at commas and initials, and the physics and astronomy
+// styles that omit the title have no such stretch. Case is not used: many
+// titles are cited in title case.
+export const hasTitleText = (text: string): boolean =>
+    prep(text).replace(/\bet\s+al\b/gi, ' ')
+        .split(/[.,;:()[\]"“”]/u)
+        .some(seg => seg.split(/\s+/).filter(w => /^\p{L}{2,}$/u.test(w)).length >= 4);
 
 /**
  * Agreement on first author, volume, first page or article number, and year,
