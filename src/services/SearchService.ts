@@ -1811,6 +1811,17 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
         applyAgreementChecks(result, citedRaw, query, expected);
     }
 
+    // The metadata rescue accepts a record whose title words all appear in the
+    // citation, which a real title followed by invented words satisfies. The
+    // title-extension check applies to it as to any other match.
+    if (result.exists && result.reason === 'metadata_match') {
+        const surplus = titleSurplus(expected?.title || citedRaw || query, result.title || '');
+        if (surplus.length >= 3) {
+            result.matchConfidence = Math.min(result.matchConfidence, 75);
+            result.issues = [...(result.issues || []), `Cited title adds words not in the record: "${surplus.join(' ')}"`];
+        }
+    }
+
     if (!isVerified(result) && citedRaw) {
         if (entry) {
             return {
