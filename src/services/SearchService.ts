@@ -1770,7 +1770,9 @@ const applyAgreementChecks = (result: CheckResult, citedRaw: string | undefined,
         cap(70, `Cited authors not found in the record: ${authors.foreign.join(', ')}`);
     }
 
-    const gap = yearGap(expected?.year || citedRaw || query, result.year);
+    // Years are read from the text as supplied when it is available: the
+    // plain-text parser can take the year from an arXiv identifier (1904.09751).
+    const gap = yearGap(citedRaw || expected?.year || query, result.year);
     const preprint = /arxiv|preprint|biorxiv|medrxiv|ssrn|\bcorr\b/i.test(result.journal || '');
     if (gap !== null && gap > (preprint ? 3 : 2)) {
         cap(70, `Cited year differs from the record's (${result.year}) by ${gap} years`);
