@@ -1,0 +1,10 @@
+{
+  "name": "checkifexist-eval-harness",
+  "private": true,
+  "type": "module",
+  "description": "Runs the CheckIfExist verification engine outside the browser, on the same code path as the web interface",
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.8",
+    "tsx": "^4.20.6"
+  }
+}

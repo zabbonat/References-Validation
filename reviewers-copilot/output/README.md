@@ -1,93 +1,73 @@
 # output/
 
-Manuscript and figures. Nothing in this folder is written by hand except the prose.
+Manuscript for *Scientometrics*: **Can Referees Rely on Automated Reference Checks? Diagnosing and Reducing False Alarms in CheckIfExist.** Nothing in this folder is written by hand except the prose.
 
 ## Files
 
 | File | Produced by |
 |---|---|
 | `main.tex` | written |
-| `references.bib` | written, every entry resolved against Crossref/arXiv (log below) |
-| `numbers.tex` | `code/make_numbers.py` |
-| `figures/fig1_unresolved_by_venue.pdf` | `code/make_figures.py` |
-| `figures/fig2_verified_match_quality.pdf` | `code/make_figures.py` |
+| `references.bib` | written; every entry resolved against arXiv, Crossref or the publisher (log below) |
+| `numbers.tex` | `code/make_numbers.py`: audit of the diagnostic corpus |
+| `numbers_eval.tex` | `eval/make_paper_numbers.py`: evaluation |
+| `table_features.tex`, `table_independent.tex`, `table_constructed.tex` | `eval/make_paper_numbers.py` |
+| `figures/fig_independent.pdf`, `figures/fig_workload.pdf` | `eval/make_paper_figures.py` |
+
+`main.tex` contains no literal figures. `code/check_manuscript.py` refuses to pass while any macro is undefined, any citation is missing, or any `\pending{...}` marker survives in the text or in a generated file.
 
 ## Rebuilding
 
 ```bash
-python code/make_numbers.py && python code/make_figures.py && latexmk -pdf output/main.tex
+python code/make_numbers.py
+python eval/reference_features.py
+python eval/make_paper_numbers.py
+python eval/make_paper_figures.py
+python code/check_manuscript.py
+latexmk -pdf output/main.tex
 ```
 
-`main.tex` contains no literal figures. Every quantity is a macro defined in `numbers.tex`, which is regenerated from `data/longitudinal_dataset_N22479.xlsx` and the analysis outputs. If a number in the text looks wrong, the fix goes in `make_numbers.py`, never in `main.tex`.
+## Evaluation design
 
-## The `\pending` marker
+Four sets, all in `eval/data/`:
 
-Claims not yet established by the audit are wrapped in `\pending{...}`, which renders in red boldface. The manuscript must not be submitted while any such marker survives compilation. Check with:
+- **Diagnostic corpus.** 22,479 reference strings from 919 arXiv and NeurIPS papers (`data/longitudinal_dataset_N22479.xlsx`), for the prevalence of error-prone features (`eval/reference_features.py`).
+- **Independent test set.** Badalova and Mayr (2026), Zenodo 10.5281/zenodo.21457492, CC BY 4.0, copied unmodified to `eval/external/`. The CSV is cp850-encoded and 90 characters in 58 references were saved as `?`; `eval/prepare_mayr.py` restores them by rule and logs every substitution in `eval/data/mayr_104_restorations.csv`.
+- **Constructed set.** 200 genuine and 200 altered references (invented, extended title, swapped authors, altered year and venue; 50 each), built by `eval/build_sets.py` with seed 20260928 after the revision was frozen. A rebuild asserts that it reproduces the set exactly.
+- **Manuscripts.** 27 whole bibliographies, three per stratum, 636 strings.
 
-```bash
-grep -n "pending{" output/main.tex
-```
+The tool is run by `eval/harness/run_tool.ts` on the same code path as the web interface (`paste`, `quick`, `raw`, `bibtex` modes mirror `App.tsx` and `BunchPdfView.tsx`). Differences from a browser session, none of which touches the engine's logic: xmldom supplies `DOMParser`; requests the engine sends through the codetabs CORS proxy go to arXiv directly; requests are paced (arXiv one per 3.1 s, Semantic Scholar one per 1.1 s) and retried on 429/5xx except Semantic Scholar, which the app does not retry. Every response, failures included, is cached by URL, so the original and revised engine see identical responses to identical requests.
 
-## Audit status
+The original engine is the snapshot of `src/services` on `main`, in `eval/harness/baseline/`.
 
-The audit runs in three stages. Only a stage that has completed may be cited in the manuscript.
+## Revision history
 
-- **Stage A, deterministic re-verification. Complete.** All 307 strings left unresolved by the single-source pass were normalized and re-queried against Crossref, OpenAlex, DBLP and arXiv. Verdict follows the agreement rule; evidence is the DOI or repository identifier. No judgement involved. Script: `code/audit_stage_a.py`. Output: `stage_a_flagged_307.csv`. Result: 197 recovered, 64 fuzzy, 46 unresolved.
+| Commit | What |
+|---|---|
+| `b404b90` | Revision frozen before any evaluation |
+| `5abdb37` | Year read from the supplied text, not the parsed field (found on the independent set; the parser took 1904 from an arXiv identifier) |
+| `c5dc047` | Title-text detection independent of case (found while measuring title-less references in the corpus) |
 
-  The first run of this stage was invalid and is retained as `stage_a_flagged_307_CROSSREF_ONLY_superseded.csv`. It passed the whole punctuated reference string to OpenAlex and an exact-phrase query to arXiv, and both return nothing under those conditions, so the run was effectively Crossref-only despite reporting four sources. Testing the two query forms on five references known to be genuine gave zero hits for the full-string form and five for the keyword form. Correcting the queries moved the residual from 60 to 46.
-- **Stage B, resolution of the residual. Complete.** The 46 strings unmatched by all four sources in stage A. Script: `code/audit_stage_b.py`. Output: `stage_b_residual.csv`. Result: 21 segmentation failures, 17 not references, 5 rule limitations, 3 coverage limitations, **0 fabrications**.
+Both corrections were made before the constructed set and the manuscripts were evaluated with the revised engine. Results on the independent set are reported for the final version; the frozen version's are kept as `eval/results/mayr_revised_*_b404b90.jsonl`.
 
-  Two categories are assigned by rules stated in the script and applied uniformly. The other 13 strings were resolved individually and the identifier or URL backing each verdict is recorded in the `EVIDENCE` table in the script, so no verdict rests on an unrecorded judgement.
+A few cases of the independent set were inspected during the diagnosis, before the revision was written. It is therefore not fully held out; the constructed set is.
 
-  The dominant finding is that 18 of the 21 segmentation failures are astronomy bibliographies from the 2026 cohort. The A&A and ApJ styles carry no enumeration marker, so the splitter returns whole reference lists as single strings. This is a property of one parser meeting one citation style.
-- **Stage C, independent verification of the accepted stratum. Complete.** The 200-row stratified sample was verified string by string against four sources under the agreement rule, without reference to the record the screening pass accepted. Scripts: `code/audit_stage_c.py`, `code/audit_stage_c_resolve.py`. Outputs: `stage_c_accepted_sample.csv`, `stage_c_residual_resolved.csv`. Result: 125 confirmed, 58 fuzzy, 17 unresolved; the 17 resolve into 10 rule limitations, 4 coverage limitations, 1 non-reference and 2 that could not be pinned to an exact record. **0 fabrications.** Exact 95% upper bound 1.49%, or 3.11% treating both unpinned strings as fabrications.
+## RefChecker
 
-  This is **not** the human verification originally specified. It is an automated second pass, performed by the same class of tools as the screening it audits, and the manuscript must describe it as such. What it can establish is that a cited work exists and where; what it cannot establish is anything that requires a reader's judgement. See the provenance note below.
+Version 3.0.190, run without a language model (`--llm-provider` omitted; the base install has no LLM SDKs, and LLM API keys were removed from its environment). Without a model it extracts nothing from plain text, so on the constructed set both tools receive the same BibTeX file (`eval/data/constructed_400.bib`). On the independent set the comparison uses the RefChecker results published by Badalova and Mayr.
 
-## Provenance of the audit
+## Provenance
 
-The verification reported in stages A, B and C was carried out by an automated agent with API and web-search access, not by a human expert coder. Every verdict is backed by a recorded identifier or URL and can be rechecked, and the rule-based categories are reproducible from the scripts. Two things follow and both belong in the manuscript rather than in this file.
-
-The manuscript may not describe this audit as manual, expert or single-coder. It is an automated audit with recorded evidence.
-
-No inter-rater reliability statistic is available, because there is one coder and it is not a person. The `Double_Coded` column in the two coding sheets marks a 25% subset reserved for a second, human coder; until someone codes it, agreement statistics cannot be reported. The author should at minimum spot-check the 13 individually resolved strings in stage B and the escalated cases in stage C, since those are the verdicts that carry the fabrication claim.
-
-## Negative results, deliberately retained
-
-Two mechanisms were proposed to explain the temporal trend in the unresolved rate. Both were tested and both failed, and Section 4.5 of the manuscript reports the failure rather than dropping it.
-
-- **Extraction damage.** `code/measure_extraction_damage.py`. Ligature damage *falls* over the period (arXiv cs.AI 22.04% in 2016 to 0.82% in 2025) and correlates negatively with the unresolved rate across the nine strata (Spearman −0.617). Lost inter-field spaces show no relationship (+0.017). At string level, damage does raise the risk of remaining unresolved by 1.55×, so the mechanism exists; it is simply not distributed as the trend would require.
-
-  A first version of this measurement appeared to support the hypothesis. It tested for a lowercase letter followed by an uppercase one, which is dominated by legitimate camel-case tokens, above all *arXiv*, whose frequency roughly quadruples over the period for reasons unrelated to extraction. Excluding those tokens removes the apparent trend.
-- **Preprint composition.** Preprint citations rise from 6.4% to 24.3% of references within arXiv cs.AI, and preprint references are 1.78× more likely to remain unresolved. This does not explain the trend, because the trend holds within each category: among references mentioning no preprint server, the cs.AI unresolved rate still rises 0.36% → 1.06% → 2.56%.
-
-`code/detect_encoding_damage.py` searched for a third mechanism, font subsets carrying a custom encoding without a ToUnicode map, which renders text as shifted glyph codes. One clear instance exists in the corpus, an Abid, Farooqi and Zou reference recoverable by a constant +29 shift, but the signature appears in essentially no other string. The mechanism is real and rare, and it does not carry the trend.
-
-## Independent of the audit
-
-The match-quality result (Table 2, Figure 2) is independent of all three stages. It is computed offline from the record the screening pass itself stored, by `code/audit_verified_match.py`, and requires no retrieval and no judgement.
+The evaluation harness, the analysis code, the revisions to the engine and drafts of the text were produced with an AI coding assistant, and the audit of the diagnostic corpus (individual resolution of unresolved references) was carried out by the same assistant with API and web access. Every audit verdict is recorded against a named identifier or URL. The manuscript's "Use of AI tools" statement says so and must be confirmed by the author before submission.
 
 ## Bibliography verification log
 
-Checked during preparation. Two entries in an earlier draft did not survive checking and were corrected.
+Every entry was resolved against its identifier. Four did not survive a first draft:
 
-| Key | Status |
+| Key | Correction |
 |---|---|
-| `sakai2026` | confirmed, arXiv 2601.18724, ACL 2026, Sakai / Kamigaito / Watanabe |
-| `zhao2026` | confirmed, arXiv 2605.07723 |
-| `russinovich2026` | confirmed, arXiv 2607.00738, Russinovich / Siva Kumar / Salem |
-| `naturebanned2026` | confirmed, nature.com/articles/d41586-026-01595-5 |
-| `naturesocsci2026` | confirmed, nature.com/articles/d41586-026-01545-1 |
-| `naturepolluting2026` | confirmed, doi 10.1038/d41586-026-00969-z |
-| `verabaceta2019` | confirmed via Crossref, doi 10.1007/s11192-019-03264-z |
-| `lopez2009` | confirmed via Crossref, doi 10.1007/978-3-642-04346-8_62 |
-| `tkaczyk2015` | **corrected.** Cited as `tkaczyk2018` in an earlier draft. CERMINE is 2015, IJDAR 18(4), doi 10.1007/s10032-015-0249-8 |
-| `priem2022` | **corrected.** A Crossref query returned Piwowar, Priem and Orr (2019), *The Future of OA*, which is a different paper. The OpenAlex paper is arXiv 2205.01833 (2022), confirmed directly |
-| `zhao2026` | **corrected.** The first author was initially entered as "Yiming Zhao", inferred from a secondary source that cited the paper as "Zhao et al." and never checked. arXiv 2605.07723 gives Zhenyue Zhao, Yihe Wang, Toby Stuart, Mathijs De Vaan, Paul Ginsparg and Yian Yin. The given name was invented, which is the failure this manuscript is about, caught by checking the identifier |
-| `bhattacharyya2023`, `walters2023`, `day2023`, `eysenbach2023`, `martinmartin2018`, `visser2021` | carried over from the existing bibliography |
+| `tkaczyk2015` | CERMINE is 2015 (IJDAR 18(4)), not 2018 |
+| `priem2022` | a single-source Crossref query returned a different paper by overlapping authors; the OpenAlex paper is arXiv 2205.01833 |
+| `zhao2026` | first author entered as "Yiming Zhao" from a secondary source; arXiv 2605.07723 gives Zhenyue Zhao |
+| `shi2026` | a search engine summary attributed CiteAudit to "Yuan et al."; arXiv 2602.23452 gives Kaiwen Shi as first author |
 
-The `priem2022` case is worth recording. A single-source bibliographic query returned a plausible but incorrect record, with overlapping authors and a related topic. That is the same failure the manuscript measures at 25.35% across the corpus, encountered while assembling the manuscript's own bibliography.
-
-## Known divergence between manuscript and shipped tool
-
-`SearchService.ts:161` normalizes with `NFD`, which does not decompose the `ﬁ` ligature; only `NFKD` does. `code/analyze_dataset.py` used `NFKD` followed by an ASCII fold, which deletes any character that fails to decompose. The normalization described in Section 3 of the manuscript is the one implemented in `audit_stage_a.py` and used for the reported results. The shipped dashboard does not yet implement it. Either the tool is brought into line with the manuscript, or Section 3 must say which artefact it describes.
+Three of the four are the failure this paper is about: a plausible bibliographic claim that nobody had checked against the record.
