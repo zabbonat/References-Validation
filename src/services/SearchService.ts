@@ -1784,14 +1784,19 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // forms into plain characters before anything is sent to a search API,
     // while keeping accented letters composed. A ligature left in the query
     // makes the APIs miss the paper even when the comparison would match it.
-    query = query.normalize('NFKC');
-    if (originalQuery) originalQuery = originalQuery.normalize('NFKC');
+    // Line-break hyphenation carried over from PDF text ("interpretabil- ity")
+    // is repaired at the same point: it is present in about a quarter of the
+    // reference strings extracted from PDFs, and it defeats any comparison
+    // of the cited title with the record's.
+    const clean = (s: string) => s.normalize('NFKC').replace(/(\p{Ll})-\s+(\p{Ll})/gu, '$1$2');
+    query = clean(query);
+    if (originalQuery) originalQuery = clean(originalQuery);
     if (expected) {
         expected = {
             ...expected,
-            title: expected.title?.normalize('NFKC'),
-            authors: expected.authors?.normalize('NFKC'),
-            journal: expected.journal?.normalize('NFKC'),
+            title: expected.title ? clean(expected.title) : expected.title,
+            authors: expected.authors ? clean(expected.authors) : expected.authors,
+            journal: expected.journal ? clean(expected.journal) : expected.journal,
         };
     }
 
