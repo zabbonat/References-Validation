@@ -140,10 +140,10 @@ const NAME_JOINER = /[\p{Pd}\u00ad'’]/u;
 
 /**
  * Agreement between the cited author segment and the record's authors.
- * foreign: capitalised name tokens that match no author of the record. A given
- * name that the record abbreviates to an initial is accepted when its initial
- * matches and a record surname follows it. Each part of a compound surname
- * counts as a surname.
+ * foreign: capitalised name tokens that match no author of the record. Given
+ * names that the record abbreviates to initials are accepted when their
+ * initials match and a record surname follows them. Each part of a compound
+ * surname counts as a surname.
  * matched: cited name tokens found in the record.
  * A record name in which letters were lost to an encoding error ("Koml\uFFFDs",
  * as some Crossref records have it) matches any letters in their place.
@@ -162,8 +162,9 @@ export const authorAgreement = (citedAuthors: string | null | undefined, recordA
         if (words.length === 0) continue;
         const family = words[words.length - 1];
         for (const p of [...partsOf(family), foldText(family)]) { recTok.add(p); recFamilies.add(p); }
+        // "W.L." and "J.-P." abbreviate two given names each
         for (const w of words.slice(0, -1)) {
-            for (const p of partsOf(w)) { recTok.add(p); recInitials.add(p[0]); }
+            for (const p of w.split('.').flatMap(partsOf)) { recTok.add(p); recInitials.add(p[0]); }
         }
         for (const w of words) {
             if (!w.includes('\uFFFD')) continue;
@@ -176,14 +177,21 @@ export const authorAgreement = (citedAuthors: string | null | undefined, recordA
     const re = /\p{Lu}[\p{L}\p{Pd}\u00ad'’]+/gu;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text))) found.push(...partsOf(m[0]));
+    // a given name the record abbreviates: its initial is a record initial, and
+    // a record surname follows it, directly or after one or two further given
+    // names ("Wai Lok Woo" against "W.L. Woo")
+    const abbreviated = (i: number, depth: number): boolean => {
+        const next = found[i + 1];
+        if (!next || !recInitials.has(found[i][0])) return false;
+        return recFamilies.has(next) || (depth < 2 && abbreviated(i + 1, depth + 1));
+    };
     const foreign: string[] = [];
     let matched = 0;
     for (let i = 0; i < found.length; i++) {
         const f = found[i];
         if (f.length < 3 || NAME_STOP.has(f)) continue;
         if (recTok.has(f) || damaged.some(r => r.test(f))) { matched++; continue; }
-        const next = found[i + 1];
-        if (next && recFamilies.has(next) && recInitials.has(f[0])) continue;
+        if (abbreviated(i, 0)) continue;
         foreign.push(f);
     }
     return { foreign: [...new Set(foreign)], matched, citedCount: none.citedCount };
@@ -221,7 +229,9 @@ const AUTHOR_RE = /\p{Lu}[\p{L}'’-]+,\s*\p{Lu}\.|\p{Lu}\.\s*\p{Lu}[\p{L}'’-]
  */
 export const classifyEntry = (text: string): 'merged_entries' | 'not_a_reference' | null => {
     const years = new Set(citedYears(text));
-    const dois = (text.match(/10\.\d{4,9}\//g) || []).length;
+    // a DOI given both as "doi:" and as a doi.org link is one DOI
+    const linked = (text.match(/doi\.org\/10\.\d{4,9}\//gi) || []).length;
+    const dois = Math.max(linked, (text.match(/10\.\d{4,9}\//g) || []).length - linked);
     const etal = (text.match(/\bet\s+al\b/gi) || []).length;
     if (years.size >= 3 || dois >= 2 || etal >= 3) return 'merged_entries';
     if (years.size === 0 && dois === 0 && !URL_RE.test(text) && !AUTHOR_RE.test(text)) return 'not_a_reference';

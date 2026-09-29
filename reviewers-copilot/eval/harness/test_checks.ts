@@ -70,7 +70,9 @@ eq('given names before compound surnames', C.foreignAuthorNames('David Freire-Ob
     ['D. Freire-Obregon', 'M. Castrillon-Santana', 'E. Ramon-Balmaseda', 'J. Lorenzo-Navarro']), []);
 eq('record letters lost to encoding', C.foreignAuthorNames('J. Komlós, P. Major, and G. Tusnády. ', [`J. Koml${FFFD}s`, 'P. Major', `G. Tusn${FFFD}dy`]), []);
 eq('damaged record still rejects another name', C.foreignAuthorNames('J. Komlós, P. Major, and G. Smith. ', [`J. Koml${FFFD}s`, 'P. Major', `G. Tusn${FFFD}dy`]), ['smith']);
-eq('compound names swapped in', C.foreignAuthorNames('Jean-Paul Sartre and Simone Beauvoir. ', [`Isidro Cortés${U2010}Ciriano`, 'Andreas Bender']),
+eq('several given names against joined initials', C.foreignAuthorNames('Yunus Celik, Sam Stuart, Wai Lok Woo, and Alan Godfrey. ', ['Y. Celik', 'S. Stuart', 'W.L. Woo', 'A. Godfrey']), []);
+eq('given names do not hide a swapped author', C.foreignAuthorNames('Kevin Stone and Hugo Touvron. ', ['H. Touvron', 'K. Lee']), ['kevin', 'stone']);
+eq('compound names swapped in',C.foreignAuthorNames('Jean-Paul Sartre and Simone Beauvoir. ', [`Isidro Cortés${U2010}Ciriano`, 'Andreas Bender']),
     ['jean', 'paul', 'sartre', 'simone', 'beauvoir']);
 eq('metadata match with compound first author',
     C.metadataAgreement('Cortes-Ciriano, I.; Bender, A. J. Chem. Inf. Model. 2019, 59, 3330–3339.',
@@ -90,6 +92,9 @@ eq('lowercase title found', C.hasTitleText('Pecora, L. M., & Carroll, T. L. (199
 // entry type
 eq('astronomy block', C.classifyEntry('Abbott, D. C. 1982, ApJ, 259, 282 Alkousa, T., Crowther, P. A., et al. 2025, A&A, 699, A314 Anderson, L. S. 1985, ApJ, 298, 848'), 'merged_entries');
 eq('formula', C.classifyEntry('If D ∪Φ |= q and D ∪Φ |= q′ then D ∪Φ |= q ∧q′.'), 'not_a_reference');
+eq('DOI given twice', C.classifyEntry('Hugo J. Spiers and Eleanor A. Maguire. Thoughts, behaviour, and brain dynamics during navi- gation in the real world. NeuroImage, 31(4):1826–1840, July 2006. doi: 10.1016/j.neuroimage. 2006.01.037. URL https://doi.org/10.1016/j.neuroimage.2006.01.037.'), null);
+eq('two references with DOIs', C.classifyEntry('Smith, J. (2019). A. Journal, 1, 2. doi: 10.1000/abc. Jones, K. (2020). B. Journal, 3, 4. doi: 10.1000/def.'), 'merged_entries');
+eq('spacing folded', foldText('End2You -- The  Imperial'), 'end2you the imperial');
 eq('genuine reference', C.classifyEntry('Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system. KDD.'), null);
 
 process.stdout.write(fails ? `\n${fails} FAILED\n` : '\nall passed\n');

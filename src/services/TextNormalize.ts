@@ -31,4 +31,5 @@ export const foldText = (s: string): string =>
         .replace(/\p{M}/gu, '')
         .toLowerCase()
         .replace(/[^\p{L}\p{N}\s]/gu, '')
+        .replace(/\s+/g, ' ')
         .trim();

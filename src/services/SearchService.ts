@@ -5,7 +5,7 @@ import { searchDblp, formatDblpAPA, formatDblpMLA, formatDblpISO690, generateDbl
 import { isPredatory } from './PredatoryService';
 import { foldText, dropSpacingAccents } from './TextNormalize';
 import {
-    titleSurplus, segmentBeforeTitle, authorAgreement, yearGap,
+    titleSurplus, segmentBeforeTitle, authorAgreement, yearGap, citedYears,
     classifyEntry, hasWebLink, metadataAgreement, checkRepository,
 } from './CitationChecks';
 
@@ -175,6 +175,7 @@ const extractLikelyTitle = (rawRef: string): string | null => {
 const MIN_TITLE_SIMILARITY = 70; // Minimum title similarity to consider a match
 
 export const normalize = (str: string): string => foldText(str);
+const squashSpaces = (s: string): string => s.replace(/\s+/g, '');
 
 // Crossref stores many subtitles separately from the title
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -267,8 +268,10 @@ export const computeTitleSim = (expectedTitle: string, resultTitle: string): num
 
     let sim = calculateSimilarity(cleanExpected, cleanResult);
 
-    // If the expected title contains the result title (e.g. expected is a full citation)
-    if (sim < 90 && cleanExpected.includes(cleanResult) && cleanResult.length > 20) {
+    // If the expected title contains the result title (e.g. expected is a full citation).
+    // Spaces are ignored: extraction and sources differ in the spacing around
+    // dashes ("End2you–the" against "End2You -- The").
+    if (sim < 90 && squashSpaces(cleanExpected).includes(squashSpaces(cleanResult)) && cleanResult.length > 20) {
         sim = 95;
     }
 
@@ -512,8 +515,15 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                     titleScore = calculateSimilarity(expected.title, iTitle);
                 } else {
                     const nTitle = normalize(iTitle);
-                    if (nTitle && (nQuery.includes(nTitle) || nTitle.includes(nQuery))) {
+                    // A record whose title is the cited title ranks above one
+                    // whose title merely contains it ("... Using Partial
+                    // Incentives"): containment alone used to tie at 100, and
+                    // the order of the search results decided.
+                    const sTitle = squashSpaces(nTitle), sQuery = squashSpaces(nQuery);
+                    if (sTitle && sTitle === sQuery) {
                         titleScore = 100;
+                    } else if (sTitle && (sQuery.includes(sTitle) || sTitle.includes(sQuery))) {
+                        titleScore = 99;
                     } else {
                         // Try word-overlap: check BOTH directions to prevent false positives.
                         // e.g., result title "Advances in Neural Information Processing Systems"
@@ -547,8 +557,10 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                         combinedScore += 10; // Small boost for ±1 year
                     }
                 } else if (!expected?.title) {
-                    // Quick Check: check if year from query matches any date field
-                    const yearsInQuery: string[] = Array.from(query.match(/\b(19|20)\d{2}\b/g) || []);
+                    // Quick Check: check if year from query matches any date field.
+                    // The search query is often the extracted title alone, so the
+                    // years are read from the text as cited.
+                    const yearsInQuery: string[] = citedYears(validationQuery).map(String);
                     if (yearsInQuery.length > 0 && iYears.some(y => yearsInQuery.includes(y))) {
                         combinedScore += 30;
                     }
@@ -1785,7 +1797,7 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // while keeping accented letters composed. A ligature left in the query
     // makes the APIs miss the paper even when the comparison would match it.
     // Line-break hyphenation carried over from PDF text ("interpretabil- ity")
-    // is repaired at the same point: it is present in about a quarter of the
+    // is repaired at the same point: it is present in about a fifth of the
     // reference strings extracted from PDFs, and it defeats any comparison
     // of the cited title with the record's. Accents that the extraction has
     // separated from their letters ("R¨ost") are dropped before NFKC,
