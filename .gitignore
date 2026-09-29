@@ -41,3 +41,4 @@ reviewers-copilot/eval/refchecker_runs/_*
 reviewers-copilot/eval/results/_*
 reviewers-copilot/eval/debug/
 reviewers-copilot/eval/harness/_*
+reviewers-copilot/submission/

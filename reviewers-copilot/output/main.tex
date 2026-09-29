@@ -1,16 +1,14 @@
-\documentclass[11pt, a4paper]{article}
+% Springer Nature LaTeX template (sn-jnl, December 2024), APA reference style,
+% as recommended by Scientometrics. The class loads apacite (with natbib-style
+% \citep and \citet) and hyperref.
+\documentclass[pdflatex,sn-apa]{sn-jnl}
 
-\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{tabularx}
-\usepackage{geometry}
-\geometry{margin=1in}
-\usepackage{natbib}
 \usepackage{xcolor}
-\usepackage[colorlinks=true, allcolors=blue!55!black]{hyperref}
 
 % All quantities come from generated files. numbers.tex holds the audit of the
 % diagnostic corpus (code/make_numbers.py); numbers_eval.tex holds the
@@ -23,25 +21,19 @@
 % code/check_manuscript.py refuses to pass.
 \newcommand{\pending}[1]{\textcolor{red}{\textbf{[PENDING: #1]}}}
 
-\title{Can Referees Rely on Automated Reference Checks?\\Diagnosing and Reducing False Alarms in CheckIfExist}
-
-\author{
-    Diletta Abbonato\textsuperscript{1,*} \\
-    \small \textsuperscript{1}CPS Department, University of Turin, Turin, Italy \\
-    \small \textsuperscript{*}Corresponding author: \texttt{diletta.abbonato@unito.it}
-}
-\date{}
-
 \begin{document}
 
+\title[Can Referees Rely on Automated Reference Checks?]{Can Referees Rely on Automated Reference Checks? Diagnosing and Reducing False Alarms in CheckIfExist}
+
+\author*[1]{\fnm{Diletta} \sur{Abbonato}}\email{diletta.abbonato@unito.it}
+
+\affil*[1]{\orgdiv{CPS Department}, \orgname{University of Turin}, \orgaddress{\city{Turin}, \country{Italy}}}
+
+\abstract{Automated reference checks are entering peer review, and referees are increasingly expected to run them. Such a tool helps only if it surfaces wrong references without burying them among correct ones. An independent evaluation found that the most sensitive tools flag about half of the genuine references in a verified test set. This paper takes one of them, CheckIfExist, and asks where its false alarms come from and whether they can be removed without loss of detection. A diagnosis combining the source code with \Nrefs{} reference strings from \Npapers{} papers traces the errors to properties of citation practice, PDF extraction and bibliographic indexing that vary across fields. On the independent test set, whose published result we first reproduce, the revised tool detects \IndRevTP{} of \IndProb{} problematic references and flags \IndRevFP{} of \IndGen{} genuine ones, against \IndBaseTP{} and \IndBaseFP{} for the original. On altered references constructed after the revision was fixed, detection rises from \ConDetBase{}\% to \ConDetRev{}\% while false alarms remain low. On references extracted from real manuscripts, fabrications hidden among them in the manuscripts' own style are flagged in \PlantDetRev{}\% of cases rather than \PlantDetBase{}\%. Regressions on these references show that the revision removes false alarms caused by extraction and web pages, but not those caused by styles that omit titles. We would maintain that the binding constraint on automated reference checking is not detection but restraint, and that much of what limits restraint lies in the scholarly record rather than in any particular tool.}
+
+\keywords{Peer review, Reference verification, Citation accuracy, Research integrity, Bibliographic databases, Large language models}
+
 \maketitle
-
-\begin{abstract}
-\noindent Automated reference checks are entering peer review, and referees are increasingly expected to run them. Such a tool helps only if it surfaces wrong references without burying them among correct ones. An independent evaluation found that the most sensitive tools flag about half of the genuine references in a verified test set. This paper takes one of them, CheckIfExist, and asks where its false alarms come from and whether they can be removed without loss of detection. A diagnosis combining the source code with \Nrefs{} reference strings from \Npapers{} papers traces the errors to properties of citation practice, PDF extraction and bibliographic indexing that vary across fields. On the independent test set, whose published result we first reproduce, the revised tool detects \IndRevTP{} of \IndProb{} problematic references and flags \IndRevFP{} of \IndGen{} genuine ones, against \IndBaseTP{} and \IndBaseFP{} for the original. On altered references constructed after the revision was fixed, detection rises from \ConDetBase{}\% to \ConDetRev{}\% while false alarms remain low. On references extracted from real manuscripts, fabrications hidden among them in the manuscripts' own style are flagged in \PlantDetRev{}\% of cases rather than \PlantDetBase{}\%. Regressions on these references show that the revision removes false alarms caused by extraction and web pages, but not those caused by styles that omit titles. We would maintain that the binding constraint on automated reference checking is not detection but restraint, and that much of what limits restraint lies in the scholarly record rather than in any particular tool.
-
-\vspace{6pt}
-\noindent \textbf{Keywords:} Peer review; Reference verification; Citation accuracy; Research integrity; Bibliographic databases; Large language models.
-\end{abstract}
 
 \section{Introduction}
 \label{sec:intro}
@@ -116,6 +108,8 @@ RefChecker \citep{russinovich2026} provides the external comparison. On the inde
 
 The two versions of CheckIfExist are always compared on the same references, and differences in the share of references flagged are tested with exact McNemar tests on the references whose verdict changes. On the manuscripts, whose references are clustered within papers, two further estimates are made with linear probability models, with standard errors clustered by manuscript. The first is the change in the share of references presented as possibly wrong, with reference fixed effects on the two versions stacked. The second is the association between that outcome and the features of reference strings measured in the diagnosis, with stratum fixed effects, estimated separately for each version. A linear model is used because, under the revised tool, some features predict the outcome perfectly, which rules out a logit.
 
+The evaluation code, the revisions of the tool and the reference-by-reference verifications, in the audit of the diagnostic corpus and in the checks on the manuscripts reported in Section~\ref{sec:referee}, were carried out with an AI assistant (Claude, Anthropic) under the author's direction. Each verdict is recorded with the identifier or source that supports it; since a single coder produced them, no inter-rater agreement can be reported.
+
 \section{Results}
 \label{sec:results}
 
@@ -131,8 +125,8 @@ The source code of CheckIfExist shows how the same two failures arise in a tool 
 \caption{Features of reference strings associated with errors of automated checking, as a percentage of strings in each stratum of the diagnostic corpus. Title-less references are single references with no stretch of four or more words between punctuation marks; merged entries contain several references run together.}
 \label{tab:features}
 \vspace{4pt}
-\small
-\setlength{\tabcolsep}{4pt}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
 \input{table_features}
 \end{table}
 
@@ -148,8 +142,8 @@ Table~\ref{tab:independent} reports the results on the independent test set. The
 \caption{Independent test set of \citet{badalova2026data}: \IndProb{} problematic and \IndGen{} genuine references. A reference is flagged when the tool reports anything other than Verified. Published results are those of \citet{badalova2026}.}
 \label{tab:independent}
 \vspace{4pt}
-\small
-\setlength{\tabcolsep}{4pt}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
 \input{table_independent}
 \end{table}
 
@@ -227,26 +221,35 @@ Several limitations qualify these conclusions. The independent test set is small
 
 The conclusion we would draw is a cautious one. Automated reference checking can already detect most problematic references, and on the evidence reported here it can also be made considerably more restrained. What limits it is, to a large extent, not the software but the scholarly record it consults: the way references are extracted, the styles in which they are written, and the coverage and completeness of the open metadata against which they are checked. A referee can rely on such a tool to direct attention, and not to replace it.
 
-\section*{Use of AI tools}
-\pending{draft below, to be checked and confirmed by the author before submission}
-During this study the author used an AI coding assistant (Claude, Anthropic) to write and run the evaluation harness and the analysis code, to implement the revisions to the CheckIfExist source code described in Section~\ref{sec:tool}, and to draft and edit parts of the manuscript. The individual resolution of references in the audit of the diagnostic corpus, the classification of the references whose verdict the revision changed on the manuscripts, and the verification of the sample of flags reported in Section~\ref{sec:referee} were also carried out by the assistant, with programmatic access to bibliographic sources and to web search, and each verdict is recorded against a named identifier or URL in the released data; no inter-rater reliability statistic is therefore available for these judgements. The author reviewed the code, the revisions, the audit records and the text, and takes full responsibility for the content of the paper.
+\backmatter
 
-\section*{CRediT author contribution statement}
-\textbf{Diletta Abbonato:} Conceptualization, Methodology, Software, Formal analysis, Data curation, Writing (original draft), Writing (review and editing).
+\section*{Statements and Declarations}
 
-\section*{Data availability statement}
-The diagnostic corpus and its audit, the constructed and planted sets, and every output of both versions of the tool are available at \url{https://github.com/zabbonat/References-Validation}. The responses of the bibliographic sources stored during the evaluation, which allow every comparison to be re-run offline, will be deposited in a public archive. The independent test set is available from its authors \citep{badalova2026data}.
-
-\section*{Code availability statement}
-CheckIfExist, including the revision evaluated here, the evaluation harness and the code generating every quantity in this manuscript are released under an MIT licence at \url{https://github.com/zabbonat/References-Validation}.
-
-\section*{Conflicts of interest}
+\bmhead{Competing interests}
 The author develops and maintains CheckIfExist, the tool evaluated and revised in this study. To limit the consequences of that position, the main comparison uses a test set built and labelled by independent researchers, whose published result is reproduced before the revision is evaluated, and all code, data and outputs are released. The author declares no competing financial interests.
 
-\section*{Ethics statement}
-This analysis evaluates published academic literature and involves no human or animal subjects.
+\bmhead{Funding}
+The author did not receive support from any organization for the submitted work.
 
-\bibliographystyle{apalike}
+\bmhead{Ethics approval and consent to participate}
+Not applicable: the study analyses published literature and involves no human or animal participants.
+
+\bmhead{Consent for publication}
+Not applicable.
+
+\bmhead{Data availability}
+The diagnostic corpus and its audit, the constructed and planted sets, and every output of both versions of the tool are available at \url{https://github.com/zabbonat/References-Validation}. The responses of the bibliographic sources stored during the evaluation, which allow every comparison to be re-run offline, will be deposited in a public archive. The independent test set is available from its authors \citep{badalova2026data}.
+
+\bmhead{Code availability}
+CheckIfExist, including the revision evaluated here, the evaluation harness and the code generating every quantity in this manuscript are released under an MIT licence at \url{https://github.com/zabbonat/References-Validation}.
+
+\bmhead{Author contributions}
+Diletta Abbonato: conceptualization, methodology, software, formal analysis, data curation, writing (original draft), writing (review and editing).
+
+\bmhead{Use of artificial intelligence}
+\pending{to be confirmed by the author}
+The author conceived and directed the study and developed CheckIfExist. An AI assistant (Claude, Anthropic) was used, under the author's direction, to write and run the evaluation code, to implement the revisions to CheckIfExist described in Section~\ref{sec:tool}, to carry out the reference-by-reference verifications described in Sections~\ref{sec:design} and~\ref{sec:referee}, each recorded with its evidence in the released data, and to draft the text. The author reviewed the results and the text and takes full responsibility for the content of the paper.
+
 \bibliography{references}
 
 \end{document}

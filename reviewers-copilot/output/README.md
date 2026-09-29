@@ -12,6 +12,7 @@ Manuscript for *Scientometrics*: **Can Referees Rely on Automated Reference Chec
 | `numbers_eval.tex` | `eval/make_paper_numbers.py`: evaluation |
 | `table_features.tex`, `table_independent.tex`, `table_constructed.tex`, `table_regression.tex` | `eval/make_paper_numbers.py` |
 | `figures/fig_independent.pdf`, `figures/fig_referee.pdf` | `eval/make_paper_figures.py` |
+| `sn-jnl.cls`, `sn-apacite.bst` | Springer Nature LaTeX template (December 2024), APA reference style, as Scientometrics recommends |
 
 `main.tex` contains no literal figures. `code/check_manuscript.py` refuses to pass while any macro is undefined, any citation is missing, or any `\pending{...}` marker survives in the text or in a generated file.
 
@@ -24,8 +25,10 @@ python eval/build_planted.py     # asserts that it reproduces the planted set
 python eval/make_paper_numbers.py
 python eval/make_paper_figures.py
 python code/check_manuscript.py
-latexmk -pdf output/main.tex
+cd output && latexmk -pdf main.tex
 ```
+
+`python code/make_submission.py` builds the package for Editorial Manager in `submission/` (not versioned): one flat `main.tex` with numbers and tables inlined, `main.bbl`, `references.bib`, the class and style, the figures, the compiled PDF, and a zip of them. It refuses while any `\pending{...}` marker remains; `--draft` builds anyway.
 
 ## Evaluation design
 
