@@ -70,6 +70,10 @@ feat = pd.DataFrame({
     "datacite_doi": s.str.contains(DATACITE.pattern.replace("(", "(?:", 1), flags=re.I),
     "truncated_authors": s.str.contains(r"\bet\s+al\b|…|\.\.\.", regex=True, flags=re.I),
     "arxiv_id": s.str.contains(r"arXiv[:\s]*\d{4}\.\d{4,5}|arxiv\.org/abs/\d{4}\.\d{4,5}", regex=True, flags=re.I),
+    # identified in the evaluation on manuscripts, after the revision: a word
+    # broken across lines, and an accent extracted apart from its letter
+    "hyphenation": s.str.contains(r"[a-z\u00df-\u00f6\u00f8-\u00ff]-\s+[a-z\u00df-\u00f6\u00f8-\u00ff]", regex=True),
+    "detached_accent": s.str.contains(r"[\u00a8\u00af\u00b4\u00b8\u02c6-\u02dd]", regex=True),
 })
 # a reference without title text, among entries that are single references
 feat["no_title"] = kind.eq("") & ~s.map(has_title_text)

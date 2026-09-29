@@ -1,1 +1,16 @@
-\pending{constructed-set table}
+\begin{tabular}{lrrrr}
+\toprule
+ & \multicolumn{2}{c}{\textbf{CheckIfExist}} & \multicolumn{2}{c}{\textbf{RefChecker}} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+\textbf{Kind} & \textbf{Original} & \textbf{Revised} & \textbf{Errors, warnings} & \textbf{Errors} \\
+\midrule
+Genuine (false alarms) & 4.0\% & 1.5\% & 33.5\% & 4.0\% \\
+\midrule
+Invented work & 100.0\% & 100.0\% & 96.0\% & 96.0\% \\
+Extended title & 24.0\% & 84.0\% & 54.0\% & 34.0\% \\
+Swapped authors & 52.0\% & 92.0\% & 100.0\% & 98.0\% \\
+Altered year and venue & 48.0\% & 98.0\% & 100.0\% & 8.0\% \\
+\midrule
+All altered & 56.0\% & 93.5\% & 87.5\% & 59.0\% \\
+\bottomrule
+\end{tabular}

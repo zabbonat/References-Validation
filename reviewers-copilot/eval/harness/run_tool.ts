@@ -111,6 +111,11 @@ const liveFetch = async (url: string, init?: any) => {
             });
             if (r.status === 429 || r.status >= 500) {
                 retries++;
+                // an exhausted daily allowance (OpenAlex answers 429 with a
+                // retry-after of many minutes) will not recover within the
+                // backoff: the source is unavailable for this request
+                const wait = Number(r.headers.get('retry-after'));
+                if (r.status === 429 && wait > 60) break;
                 if (k < tries - 1) await sleep(5000 * 2 ** k);
                 continue;
             }
@@ -145,7 +150,11 @@ globalThis.fetch = (async (input: any, init?: any) => {
         rec = { ...JSON.parse(gunzipSync(readFileSync(file)).toString('utf-8')), retries: 0 };
         cacheHits++;
     } else {
-        rec = await liveFetch(url, init);
+        // dblp.org stopped answering during the evaluation; its official mirror
+        // serves the same API. The response is stored under the original URL,
+        // so both versions of the engine see the same answer to the same request.
+        const liveUrl = url.replace(/^https:\/\/dblp\.org\//, 'https://dblp.uni-trier.de/');
+        rec = await liveFetch(liveUrl, init);
         if (file) {
             mkdirSync(path.dirname(file), { recursive: true });
             writeFileSync(file, gzipSync(JSON.stringify({ url, status: rec.status, body: rec.body, ctype: rec.ctype })));

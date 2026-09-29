@@ -1,35 +1,38 @@
-# CheckIfExist Reviewer's Copilot
-This repository contains the complete open scientometric replication package for the research article:
+# CheckIfExist: replication package
 
-> **CheckIfExist: Detecting Citation Hallucinations in the Era of AI-Generated Content**  
-> *Author:* Diletta Abbonato (CPS Department, University of Turin, Italy)  
----
+Replication package for the article
 
-## Repository Structure
+> **Can Referees Rely on Automated Reference Checks? Diagnosing and Reducing False Alarms in CheckIfExist**
+> Diletta Abbonato, CPS Department, University of Turin. Manuscript prepared for *Scientometrics*.
+
+The tool itself, CheckIfExist, is the web application in the root of this repository (`src/`). Its verification engine is `src/services/SearchService.ts`, with the checks added in the revision in `src/services/CitationChecks.ts` and `src/services/TextNormalize.ts`.
+
+## Contents
 
 ```text
 reviewers-copilot/
-├── data/
-│   ├── longitudinal_dataset_N22479.xlsx   # Full longitudinal corpus (N=22,479 records across ArXiv & NeurIPS)
-│   ├── not_found_refs.json                # Phase 1 unresolved red flags audit pool (n=307)
-│   └── batch_0..9.json                    # Federated cross-referencing API query snapshots
-├── code/
-│   ├── strict_green_audit.py              # Strict consistency verification script (Title + Author + Year)
-│   ├── evaluate_detector.py               # Common pool benchmark evaluation metrics (RQ1)
-│   └── generate_benchmark.py              # Synthetic adversarial benchmark assembly script
-├── manuscript/
-│   ├── main.tex                           # Final submitted LaTeX article source
-│   └── references.bib                     # Authoritative CrossRef-audited bibliography
-└── README.md                              # This documentation
+├── output/        the manuscript: main.tex, references.bib, generated numbers, tables and figures
+├── eval/          the evaluation: test sets, harness that runs the tool, results, RefChecker runs
+├── code/          audit of the diagnostic corpus, and the checks run on the manuscript
+├── data/          the diagnostic corpus (22,479 reference strings from 919 papers) and its audit
+└── manuscript/    an earlier draft of the article, superseded by output/main.tex
 ```
 
----
+`output/README.md` describes the evaluation design, the rebuild sequence and the revision history of the engine. Every quantity in the manuscript is produced by a script; none is typed by hand.
 
-## Key Methodological Reproducibility Points
+## Quick rebuild
 
-1. **Extraction Resilience Layer:** Demonstrates how NFKD Unicode ligature decomposition (`\ufb01` -> `fi`) and regular expression de-gluing of unnumbered APA blocks recover 88.2% of naive single-source API red flags.
-2. **Asymmetric Jaccard Author Guard:** Eliminates security bypasses by assigning `0.0` whenever candidate reference authorship is unparseable.
-3. **Honest Audited Upper Bound (<0.02%):** Hanley-Lippman Rule of Three applied directly to the manually inspected zero-hallucination pool (n=807).
+```bash
+python code/make_numbers.py
+python eval/reference_features.py
+python eval/make_paper_numbers.py
+python eval/make_paper_figures.py
+python code/check_manuscript.py
+python code/check_style.py
+```
 
-## License
-Released under the MIT License. All scientometric metadata derived from public OpenAlex and CrossRef REST graph endpoints.
+Re-running the tool itself (`eval/harness/run_tool.ts`, Node 20 or later) needs the responses of the bibliographic sources stored during the evaluation (`eval/cache/`, 37 MB). They are not in this repository and are to be deposited in a public archive; with them in place the harness reproduces every result without network access. Without them, responses come live from Crossref, OpenAlex, Semantic Scholar, arXiv and DBLP and will differ where the sources have changed.
+
+## Licence
+
+MIT. The independent test set in `eval/external/badalova_mayr_2026/` is by Badalova and Mayr (2026), Zenodo 10.5281/zenodo.21457492, CC BY 4.0, and is redistributed unmodified.
