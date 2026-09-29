@@ -10,13 +10,13 @@
  * the record's. Each check can only lower confidence, never raise it.
  */
 
-import { foldText } from './TextNormalize';
+import { foldText, dropSpacingAccents } from './TextNormalize';
 
 // ---------------------------------------------------------------- tokens
 
 interface Tok { t: string; orig: string; start: number; boundaryBefore: boolean }
 
-const prep = (s: string): string => (s || '').normalize('NFKD').replace(/\p{M}/gu, '');
+const prep = (s: string): string => dropSpacingAccents(s).normalize('NFKD').replace(/\p{M}/gu, '');
 const stripTags = (s: string): string => (s || '').replace(/<[^>]+>/g, ' ');
 
 // sentence-level boundaries within a reference string
@@ -133,12 +133,20 @@ export const citedAuthorCount = (citedAuthors: string | null | undefined): numbe
     ).length;
 };
 
+// Hyphens and dashes of any kind, the soft hyphen and apostrophes join the
+// parts of a name: sources write "Cortés-Ciriano" with U+2010 as often as with
+// the ASCII hyphen.
+const NAME_JOINER = /[\p{Pd}\u00ad'’]/u;
+
 /**
  * Agreement between the cited author segment and the record's authors.
  * foreign: capitalised name tokens that match no author of the record. A given
  * name that the record abbreviates to an initial is accepted when its initial
- * matches and a record surname follows it.
+ * matches and a record surname follows it. Each part of a compound surname
+ * counts as a surname.
  * matched: cited name tokens found in the record.
+ * A record name in which letters were lost to an encoding error ("Koml\uFFFDs",
+ * as some Crossref records have it) matches any letters in their place.
  */
 export const authorAgreement = (citedAuthors: string | null | undefined, recordAuthors: string[] | undefined): { foreign: string[]; matched: number; citedCount: number } => {
     const none = { foreign: [], matched: 0, citedCount: citedAuthorCount(citedAuthors) };
@@ -147,29 +155,33 @@ export const authorAgreement = (citedAuthors: string | null | undefined, recordA
     const recTok = new Set<string>();
     const recFamilies = new Set<string>();
     const recInitials = new Set<string>();
+    const damaged: RegExp[] = [];
+    const partsOf = (w: string) => w.split(NAME_JOINER).map(foldText).filter(Boolean);
     for (const a of recordAuthors) {
-        const parts = foldText(stripTags(a).replace(/[-'’]/g, ' ')).split(/\s+/).filter(Boolean);
-        if (parts.length === 0) continue;
-        parts.forEach(p => recTok.add(p));
-        recFamilies.add(parts[parts.length - 1]);
-        parts.slice(0, -1).forEach(p => recInitials.add(p[0]));
+        const words = stripTags(a).split(/\s+/).filter(w => foldText(w));
+        if (words.length === 0) continue;
+        const family = words[words.length - 1];
+        for (const p of [...partsOf(family), foldText(family)]) { recTok.add(p); recFamilies.add(p); }
+        for (const w of words.slice(0, -1)) {
+            for (const p of partsOf(w)) { recTok.add(p); recInitials.add(p[0]); }
+        }
+        for (const w of words) {
+            if (!w.includes('\uFFFD')) continue;
+            const around = w.split(/\uFFFD+/).map(foldText);
+            damaged.push(new RegExp('^' + around.join('\\p{L}{1,2}') + '$', 'u'));
+        }
     }
     const text = prep(citedAuthors);
     const found: string[] = [];
-    const re = /\p{Lu}[\p{L}'’-]+/gu;
+    const re = /\p{Lu}[\p{L}\p{Pd}\u00ad'’]+/gu;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(text))) {
-        for (const piece of m[0].split(/[-'’]/)) {
-            const f = foldText(piece);
-            if (f) found.push(f);
-        }
-    }
+    while ((m = re.exec(text))) found.push(...partsOf(m[0]));
     const foreign: string[] = [];
     let matched = 0;
     for (let i = 0; i < found.length; i++) {
         const f = found[i];
         if (f.length < 3 || NAME_STOP.has(f)) continue;
-        if (recTok.has(f)) { matched++; continue; }
+        if (recTok.has(f) || damaged.some(r => r.test(f))) { matched++; continue; }
         const next = found[i + 1];
         if (next && recFamilies.has(next) && recInitials.has(f[0])) continue;
         foreign.push(f);
@@ -238,8 +250,9 @@ export const hasTitleText = (text: string): boolean =>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const metadataAgreement = (text: string, item: any): boolean => {
     if (!item) return false;
-    const folded = ' ' + foldText(text.replace(/[-–]/g, ' ')) + ' ';
-    const has = (v: string | undefined) => !!v && folded.includes(' ' + foldText(v) + ' ');
+    const spaced = (s: string) => foldText(s.replace(/[\p{Pd}\u00ad]/gu, ' '));
+    const folded = ' ' + spaced(text) + ' ';
+    const has = (v: string | undefined) => !!v && folded.includes(' ' + spaced(String(v)) + ' ');
     const first = item.author?.[0]?.family;
     const volume = item.volume;
     const page = (item.page || '').split(/[-–]/)[0] || item['article-number'];

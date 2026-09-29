@@ -60,6 +60,23 @@ eq('cited count, and', C.citedAuthorCount('Jacob Devlin, Kevin Patterson, Laura 
 const inc = C.authorAgreement('Krizhevsky, A., Sutskever, I., & Hinton, G. E. (2012). ', ['Krizhevsky']);
 eq('incomplete record: one match, two missing', [inc.matched, inc.foreign.length, inc.citedCount], [1, 2, 3]);
 
+// names as PDF extraction and the sources write them
+const U2010 = String.fromCharCode(0x2010), FFFD = String.fromCharCode(0xfffd);
+eq('detached diaeresis', foldText('R¨ost'), 'rost');
+eq('detached caron and acute', foldText('Neˇsi´c'), 'nesic');
+eq('detached accent in author list', C.foreignAuthorNames('Istvan Z. Kiss, Gergely R¨ost, and Zsolt Vizi. ', ['Istvan Z. Kiss', 'Gergely Röst', 'Zsolt Vizi']), []);
+eq('compound surname with U+2010 in the record', C.foreignAuthorNames('Cortes-Ciriano, I.; Bender, A. ', [`Isidro Cortés${U2010}Ciriano`, 'Andreas Bender']), []);
+eq('given names before compound surnames', C.foreignAuthorNames('David Freire-Obregón, Modesto Castrillón-Santana, Enrique Ramón- Balmaseda, and Javier Lorenzo-Navarro. ',
+    ['D. Freire-Obregon', 'M. Castrillon-Santana', 'E. Ramon-Balmaseda', 'J. Lorenzo-Navarro']), []);
+eq('record letters lost to encoding', C.foreignAuthorNames('J. Komlós, P. Major, and G. Tusnády. ', [`J. Koml${FFFD}s`, 'P. Major', `G. Tusn${FFFD}dy`]), []);
+eq('damaged record still rejects another name', C.foreignAuthorNames('J. Komlós, P. Major, and G. Smith. ', [`J. Koml${FFFD}s`, 'P. Major', `G. Tusn${FFFD}dy`]), ['smith']);
+eq('compound names swapped in', C.foreignAuthorNames('Jean-Paul Sartre and Simone Beauvoir. ', [`Isidro Cortés${U2010}Ciriano`, 'Andreas Bender']),
+    ['jean', 'paul', 'sartre', 'simone', 'beauvoir']);
+eq('metadata match with compound first author',
+    C.metadataAgreement('Cortes-Ciriano, I.; Bender, A. J. Chem. Inf. Model. 2019, 59, 3330–3339.',
+        { author: [{ family: `Cortés${U2010}Ciriano` }], volume: '59', page: '3330-3339', issued: { 'date-parts': [[2019]] }, title: ['Reliable prediction errors'] }),
+    true);
+
 // years
 eq('arXiv id is not a year', C.citedYears('arXiv:2006.12345, 2020'), [2020]);
 eq('year gap', C.yearGap('(2024). XGBoost', 2016), 8);

@@ -3,7 +3,7 @@ import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX, formatOpenAl
 import { searchArxiv, resolveArxivById, formatArxivAPA, formatArxivMLA, formatArxivISO690, generateArxivBibTeX } from './ArxivService';
 import { searchDblp, formatDblpAPA, formatDblpMLA, formatDblpISO690, generateDblpBibTeX } from './DblpService';
 import { isPredatory } from './PredatoryService';
-import { foldText } from './TextNormalize';
+import { foldText, dropSpacingAccents } from './TextNormalize';
 import {
     titleSurplus, segmentBeforeTitle, authorAgreement, yearGap,
     classifyEntry, hasWebLink, metadataAgreement, checkRepository,
@@ -1787,8 +1787,10 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     // Line-break hyphenation carried over from PDF text ("interpretabil- ity")
     // is repaired at the same point: it is present in about a quarter of the
     // reference strings extracted from PDFs, and it defeats any comparison
-    // of the cited title with the record's.
-    const clean = (s: string) => s.normalize('NFKC').replace(/(\p{Ll})-\s+(\p{Ll})/gu, '$1$2');
+    // of the cited title with the record's. Accents that the extraction has
+    // separated from their letters ("R¨ost") are dropped before NFKC,
+    // which would otherwise turn them into a space inside the word.
+    const clean = (s: string) => dropSpacingAccents(s).normalize('NFKC').replace(/(\p{Ll})-\s+(\p{Ll})/gu, '$1$2');
     query = clean(query);
     if (originalQuery) originalQuery = clean(originalQuery);
     if (expected) {
