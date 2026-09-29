@@ -40,6 +40,7 @@ Five sets, all in `eval/data/` except the corpus:
 Two judgements on the manuscripts were made reference by reference, each recorded with its evidence:
 
 - `eval/data/manuscript_changes_audit.csv`: every reference the original tool verified and the final version flags, with the record each version selected, classified as another work, another version, extraction damage, not retrieved, or false disagreement.
+- `eval/data/manuscript_cleared_audit.csv`: every reference the original tool flagged and the final version verifies, with the record the final version selected, checked as the work cited or another work.
 - `eval/data/manuscript_flags_audit.csv`: a random sample (seed 20260929, `eval/sample_flags.py`) of 40 of the flags the final version presents as possibly wrong, each verified against a DOI, a proceedings page or another named source, with the verdicts defined in `eval/sample_flags.py`.
 
 The tool is run by `eval/harness/run_tool.ts` on the same code path as the web interface (`paste`, `quick`, `raw`, `bibtex` modes mirror `App.tsx` and `BunchPdfView.tsx`). Differences from a browser session, none of which touches the engine's logic: xmldom supplies `DOMParser`; requests the engine sends through the codetabs CORS proxy go to arXiv directly; requests are paced (arXiv one per 3.1 s, Semantic Scholar one per 1.1 s) and retried on 429/5xx except Semantic Scholar, which the app does not retry. Every response, failures included, is cached by URL, so the original and revised engine see identical responses to identical requests.

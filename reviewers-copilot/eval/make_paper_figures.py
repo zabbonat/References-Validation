@@ -54,7 +54,7 @@ for label, (x, y) in pts.items():
     ax.scatter(x, y, s=55 if ours else 38, color=color, zorder=3,
                marker="o" if "CheckIfExist" in label else "s", edgecolor="white", linewidth=0.6)
     if label == "CheckIfExist (published)":
-        ax.annotate(label, (x, y), xytext=(58, 83), fontsize=7.5, ha="left", va="center",
+        ax.annotate(label, (x, y), xytext=(60, 93.5), fontsize=7.5, ha="left", va="center",
                     arrowprops=dict(arrowstyle="-", color="0.6", lw=0.6, shrinkB=4))
         continue
     dx, dy, ha = {

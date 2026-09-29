@@ -120,10 +120,10 @@ def ours(name):
     return d.label.ne("Verified").values
 
 
-runs = [("mayr_baseline_quick", "CheckIfExist original, single-reference path", "Base"),
-        ("mayr_baseline_paste", "CheckIfExist original, pasted-bibliography path", "BasePaste"),
-        ("mayr_revised_quick", "CheckIfExist revised, single-reference path", "Rev"),
-        ("mayr_revised_paste", "CheckIfExist revised, pasted-bibliography path", "RevPaste")]
+runs = [("mayr_baseline_quick", "Original, single reference", "Base"),
+        ("mayr_baseline_paste", "Original, pasted bibliography", "BasePaste"),
+        ("mayr_revised_quick", "Revised, single reference", "Rev"),
+        ("mayr_revised_paste", "Revised, pasted bibliography", "RevPaste")]
 flags_by = {}
 for name, label, tag in runs:
     fl = ours(name)
@@ -131,7 +131,7 @@ for name, label, tag in runs:
         continue
     flags_by[tag] = fl
     tp, fp = conf(pd.Series(fl))
-    rows_ind.append(("This study", label, tp, fp))
+    rows_ind.append(("CheckIfExist run in this study", label, tp, fp))
     put(f"Ind{tag}TP", str(tp)); put(f"Ind{tag}FP", str(fp))
     d, f, p = rates(tp, fp); put(f"Ind{tag}Det", d); put(f"Ind{tag}FAR", f); put(f"Ind{tag}Prec", p)
 
@@ -454,6 +454,16 @@ if aud.exists():
         put(f"Changes{tag}", str(int((a["class"] == c).sum())))
 else:
     put("ChangesN", PENDING % "classification of new flags")
+# 1b. every reference the original flagged and the final version verifies,
+#     checked against the record the final version selected
+aud = HERE / "data" / "manuscript_cleared_audit.csv"
+if aud.exists():
+    a = pd.read_csv(aud, dtype=str).fillna("")
+    put("ClearedN", str(len(a)))
+    put("ClearedWrong", str(int((a.verdict == "another work").sum())))
+    put("ClearedRight", str(int((a.verdict == "work cited").sum())))
+else:
+    put("ClearedN", PENDING % "check of newly verified references")
 # 2. a random sample of the final version's flags that present a reference as
 #    possibly wrong, each verified individually
 smp = HERE / "data" / "manuscript_flags_audit.csv"
