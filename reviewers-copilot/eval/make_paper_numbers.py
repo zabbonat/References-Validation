@@ -481,6 +481,122 @@ if smp.exists():
 else:
     put("SampleN", PENDING % "verified sample of flags")
 
+# ---------------------------------------------------------------- paired tests
+# The two versions are compared on the same references: exact McNemar tests on
+# the discordant pairs, and Wilson intervals for the proportions.
+import statsmodels.formula.api as smf
+from statsmodels.stats.contingency_tables import mcnemar
+from statsmodels.stats.proportion import proportion_confint
+
+
+def pfmt(p):
+    return "$p<0.001$" if p < 0.001 else f"$p={p:.2g}$"
+
+
+def paired_test(a, b, tag):
+    a, b = pd.Series(a).astype(bool).values, pd.Series(b).astype(bool).values
+    table = [[int((a & b).sum()), int((a & ~b).sum())], [int((~a & b).sum()), int((~a & ~b).sum())]]
+    p = mcnemar(table, exact=True).pvalue
+    put(f"{tag}P", pfmt(p))
+    put(f"{tag}Lost", str(table[0][1]))      # flagged by the original only
+    put(f"{tag}Gained", str(table[1][0]))    # flagged by the revised version only
+    for side, x in [("Base", a), ("Rev", b)]:
+        lo, hi = proportion_confint(int(x.sum()), len(x), method="wilson")
+        put(f"{tag}{side}Lo", pct(lo))
+        put(f"{tag}{side}Hi", pct(hi))
+    return p
+
+
+if {"Base", "Rev"} <= flags_by.keys():
+    paired_test(flags_by["Base"][prob.values], flags_by["Rev"][prob.values], "TestIndDet")
+    paired_test(flags_by["Base"][~prob.values], flags_by["Rev"][~prob.values], "TestIndFAR")
+if {"Base", "Rev"} <= have.keys():
+    g = have["Base"].kind.eq("genuine").values
+    paired_test(have["Base"].flag.values[~g], have["Rev"].flag.values[~g], "TestConDet")
+    paired_test(have["Base"].flag.values[g], have["Rev"].flag.values[g], "TestConFAR")
+if {"Base", "Rev"} <= plant.keys():
+    paired_test(plant["Base"].flag, plant["Rev"].flag, "TestPlant")
+    kind_p = [paired_test(plant["Base"].flag[plant["Base"].kind == k], plant["Rev"].flag[plant["Rev"].kind == k],
+                          f"TestPlant{k.capitalize()}") for k in ["invented", "extended", "swapped"]]
+    put("TestPlantKindMaxP", pfmt(max(kind_p)))
+
+# Manuscripts: references are clustered in papers. The change in the share
+# presented as possibly wrong is estimated with reference fixed effects on the
+# two versions stacked, and standard errors clustered by manuscript.
+for tag in ["RevBlind", "Rev"]:
+    if not {"Base", tag} <= cl.keys():
+        continue
+    s = pd.concat([cl["Base"].assign(revised=0), cl[tag].assign(revised=1)], ignore_index=True)
+    s["y"] = s.label.isin(SCRUTINY).astype(int)
+    m = smf.ols("y ~ revised + C(id)", data=s).fit(cov_type="cluster", cov_kwds={"groups": s.paper})
+    lo, hi = m.conf_int().loc["revised"]
+    put(f"CorpDiff{tag}", f"${m.params['revised'] * 100:+.1f}$")
+    put(f"CorpDiff{tag}Lo", f"${lo * 100:+.1f}$")
+    put(f"CorpDiff{tag}Hi", f"${hi * 100:+.1f}$")
+    put(f"CorpDiff{tag}P", pfmt(m.pvalues["revised"]))
+
+# ---------------------------------------------------------------- regression on the manuscripts
+# Probability that a reference string of the manuscripts is presented as
+# possibly wrong, on the features of Table 2 (computed for every string of the
+# corpus by eval/reference_features.py, joined here by row), with stratum fixed
+# effects and standard errors clustered by manuscript. A linear probability
+# model: under the revised tool some features predict the outcome perfectly,
+# which rules out a logit.
+REG = [("ligature", "Ligature", "Lig"), ("hyphenation", "Word broken across lines", "Hyphen"),
+       ("detached_accent", "Accent apart from its letter", "Accent"), ("no_title", "No title", "NoTitle"),
+       ("merged", "Merged entries", "Merged"), ("not_reference", "Not a reference", "NotRef"),
+       ("web_link", "Web link", "Web"), ("arxiv_id", "arXiv identifier", "Arxiv"), ("doi", "DOI", "Doi")]
+if {"Base", "RevBlind", "Rev"} <= cl.keys():
+    rows = corp.id.str[1:].astype(int).values
+    rd = feat.loc[rows, [c for c, _, _ in REG if c != "doi"]].reset_index(drop=True).astype(int)
+    rd["doi"] = corp.ref.str.contains(r"10\.\d{4,9}/", regex=True).astype(int).values
+    rd = pd.concat([corp[["id", "paper", "stratum"]].reset_index(drop=True), rd], axis=1)
+    # the join by row is checked on a feature recomputed from the strings themselves
+    again = corp.ref.str.contains(r"arXiv[:\s]*\d{4}\.\d{4,5}|arxiv\.org/abs/\d{4}\.\d{4,5}", regex=True, case=False)
+    assert (again.astype(int).values == rd.arxiv_id.values).all(), "features not aligned with the manuscripts"
+    rhs = " + ".join(c for c, _, _ in REG) + " + C(stratum)"
+    fits = {}
+    for tag in ["Base", "RevBlind", "Rev"]:
+        d = rd.assign(y=rd.id.map(cl[tag].set_index("id").label.isin(SCRUTINY).astype(int)))
+        fits[tag] = (smf.ols(f"y ~ {rhs}", data=d).fit(cov_type="cluster", cov_kwds={"groups": d.paper}), d)
+        for c, _, ctag in REG:
+            put(f"Reg{tag}{ctag}", f"{fits[tag][0].params[c] * 100:.1f}")
+            put(f"Reg{tag}{ctag}Abs", f"{abs(fits[tag][0].params[c]) * 100:.1f}")
+        put(f"Reg{tag}NoTitleRate", pct(d[d.no_title == 1].y.mean(), 0))
+    # has the revision changed the effect of a feature? both versions stacked,
+    # with the version interacted with every regressor
+    for tag in ["RevBlind", "Rev"]:
+        a, b = fits["Base"][1].assign(rev=0), fits[tag][1].assign(rev=1)
+        s = pd.concat([a, b], ignore_index=True)
+        inter = " + ".join(f"rev:{c}" for c, _, _ in REG)
+        m = smf.ols(f"y ~ {rhs} + rev + {inter} + rev:C(stratum)", data=s).fit(
+            cov_type="cluster", cov_kwds={"groups": s.paper})
+        for c, _, ctag in REG:
+            put(f"RegChange{tag}{ctag}", f"{abs(m.params['rev:' + c]) * 100:.1f}")
+            put(f"RegChange{tag}{ctag}P", pfmt(m.pvalues["rev:" + c]))
+
+    def cell(m, c):
+        b, p = m.params[c] * 100, m.pvalues[c]
+        stars = "^{***}" if p < 0.01 else "^{**}" if p < 0.05 else "^{*}" if p < 0.1 else ""
+        return f"${b:.1f}{stars}$", f"$({m.bse[c] * 100:.1f})$"
+
+    lines = ["\\begin{tabular}{lrrr}", "\\toprule",
+             "& \\textbf{Original} & \\textbf{Revised, blind} & \\textbf{Revised, final} \\\\", "\\midrule"]
+    for c, label, _ in REG:
+        share = pct(rd[c].mean())
+        cs = [cell(fits[t][0], c) for t in ["Base", "RevBlind", "Rev"]]
+        lines.append(f"{label} ({share}\\%) & " + " & ".join(x[0] for x in cs) + " \\\\")
+        lines.append(" & " + " & ".join(x[1] for x in cs) + " \\\\")
+    lines += ["\\midrule",
+              "Stratum fixed effects & yes & yes & yes \\\\",
+              "Presented as possibly wrong & " + " & ".join(pct(fits[t][1].y.mean()) + "\\%" for t in ["Base", "RevBlind", "Rev"]) + " \\\\",
+              "$R^2$ & " + " & ".join(f"{fits[t][0].rsquared:.2f}" for t in ["Base", "RevBlind", "Rev"]) + " \\\\",
+              f"Strings (manuscripts) & \\multicolumn{{3}}{{c}}{{{len(rd)} ({rd.paper.nunique()})}} \\\\",
+              "\\bottomrule", "\\end{tabular}"]
+    (OUT / "table_regression.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+else:
+    (OUT / "table_regression.tex").write_text(PENDING % "regression table" + "\n", encoding="utf-8")
+
 # ---------------------------------------------------------------- write
 # any quantity the text uses that the available results cannot supply yet is
 # marked pending, so that the manuscript compiles and check_manuscript fails

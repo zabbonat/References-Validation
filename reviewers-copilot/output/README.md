@@ -10,7 +10,7 @@ Manuscript for *Scientometrics*: **Can Referees Rely on Automated Reference Chec
 | `references.bib` | written; every entry resolved against arXiv, Crossref or the publisher (log below) |
 | `numbers.tex` | `code/make_numbers.py`: audit of the diagnostic corpus |
 | `numbers_eval.tex` | `eval/make_paper_numbers.py`: evaluation |
-| `table_features.tex`, `table_independent.tex`, `table_constructed.tex` | `eval/make_paper_numbers.py` |
+| `table_features.tex`, `table_independent.tex`, `table_constructed.tex`, `table_regression.tex` | `eval/make_paper_numbers.py` |
 | `figures/fig_independent.pdf`, `figures/fig_referee.pdf` | `eval/make_paper_figures.py` |
 
 `main.tex` contains no literal figures. `code/check_manuscript.py` refuses to pass while any macro is undefined, any citation is missing, or any `\pending{...}` marker survives in the text or in a generated file.
@@ -71,6 +71,14 @@ Which version each result belongs to:
 The original engine's results are the `*_baseline_*.jsonl` files. Intermediate runs of `142a77b` are kept as `*_142a77b.jsonl` and not reported.
 
 Weaknesses present in both versions and left unchanged: the arXiv query is a disjunction of words; the heuristic that extracts a title from a reference string splits it at commas; the Semantic Scholar query asks for a field (`isRetracted`) that the service rejects. During the evaluation DBLP answered every request with a bot-verification page.
+
+## Statistical analysis
+
+All in `eval/make_paper_numbers.py` (statsmodels):
+
+- The two versions are compared on the same references: exact McNemar tests on the references whose verdict changes, and Wilson intervals for the shares quoted with them.
+- On the manuscripts, references are clustered in papers. The change in the share of references presented as possibly wrong (Not Found, Partial Match, Mismatch) is estimated with a linear probability model on the two versions stacked, with reference fixed effects and standard errors clustered by manuscript.
+- `table_regression.tex`: for each version, a linear probability model of that outcome on the features of `eval/reference_features.py` (joined to the manuscript strings by row, with a check) and a DOI indicator, with stratum fixed effects and standard errors clustered by manuscript. Whether a feature's effect changes between versions is tested on the two versions stacked, with the version interacted with every regressor. A linear model is used because under the revised tool some features predict the outcome perfectly, which rules out a logit.
 
 ## RefChecker
 
