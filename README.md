@@ -2,8 +2,11 @@
 
 [**CheckIfExist**](https://zabbonat.github.io/References-Validation/) is a tool for researchers and academics to verify the authenticity of references. It cross-checks citations against the CrossRef, Semantic Scholar, OpenAlex, DBLP, and arXiv databases to detect hallucinations, verify metadata, and ensure accuracy in your bibliography.
 
+> **UPDATE: Translated Chinese & Domestic Reference Detection (CNKI / GB/T 7714)**  
+> CheckIfExist now detects translated Chinese and domestic database references (such as **CNKI** or **Wanfang** citations formatted with **GB/T 7714** tags like `[J]`, `[in Chinese]`, or university journal editions). When these citations aren't indexed with a DOI on CrossRef, CheckIfExist cascades to **OpenAlex** (with Pinyin-aware author matching) and flags unverifiable translated sources with a dedicated warning and a direct **Baidu Scholar / CNKI** lookup button—helping editors and reviewers distinguish genuine domestic literature from AI-generated hallucinations.
+
 > **Update: arXiv and DBLP integration**  
-> CheckIfExist now features fallback integration with both **arXiv** and **DBLP**. This update ensures that recent computer science conference papers (e.g., NeurIPS, ICLR, CVPR) and preprints are successfully found and validated, even if they aren't indexed on CrossRef or Semantic Scholar yet.
+> CheckIfExist also features fallback integration with both **arXiv** and **DBLP**. This ensures that recent computer science conference papers (e.g., NeurIPS, ICLR, CVPR) and preprints are successfully found and validated, even if they aren't indexed on CrossRef or Semantic Scholar yet.
 
 ## 🚀 Features
 - **Quick Verification**: Verification of single references via text selection or clipboard.
@@ -18,12 +21,13 @@
   - Retraction Check: Automatically alerts if an article has been retracted or withdrawn based on CrossRef and OpenAlex data.
   - DBLP + arXiv Fallback: When a paper isn't found (or has a low match confidence) in CrossRef, Semantic Scholar, and OpenAlex, CheckIfExist automatically queries DBLP and arXiv to catch conference papers and preprints not yet indexed elsewhere.
   - arXiv Direct Lookup: References containing an arXiv ID (e.g., `arXiv:2301.12345`) or arXiv DOI (`10.48550/arXiv.XXXX`) are resolved instantly via the arXiv API.
+  - Chinese / Domestic Source Detection: Recognizes GB/T 7714 markers (`[J]`, `[D]`, `[M]`), `[in Chinese]` tags, and translated university journals, combining OpenAlex fallback with a dedicated warning for non-DOI domestic literature.
 - **Smart Filtering & Reporting**:
-  - Dynamic filter bar (All, Verified, Partial, Mismatch, Not Found, Issues) to quickly isolate problematic references in batch reports.
+  - Dynamic filter bar (All, Verified, Partial, Mismatch, Domestic Warning, Not Found, Issues) to quickly isolate problematic references in batch reports.
 - **Bibliometric Data**:
   - Citation Counts: Displays the number of citations received by each validated paper to gauge its impact.
 - **Manual Verification Fallbacks**:
-  - Automatically strips malformed DOIs/URLs before searching on Google Scholar to ensure robust manual verification.
+  - Automatically strips malformed DOIs/URLs before searching on Google Scholar, and provides a direct **Baidu Scholar / CNKI** search button for domestic Chinese citations.
 - **Output Formats & In-line Editing**:
   - APA, MLA, ISO 690, and BibTeX: Get the correct citations instantly.
   - In-line Editing: Directly edit the generated reference formats within the result card before copying or downloading.
