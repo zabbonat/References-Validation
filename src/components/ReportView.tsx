@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import type { CheckResult } from '../services/SearchService';
+import { DOMESTIC_TRANSLATED_TOOLTIP, type CheckResult } from '../services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, generateRISFileContent, downloadBibFile, downloadFile, copyToClipboard, downloadExcelFile } from '../services/BibExportService';
 import { CheckCircle, XCircle, AlertTriangle, ExternalLink, Search, Copy, Check, FileText, ArrowLeft, Download, Printer, Filter, FileSpreadsheet, Mail, BookOpen, Calendar } from 'lucide-react';
 
-type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'notfound' | 'issues';
+type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'domestic' | 'notfound' | 'issues';
 
 interface ReportItem {
     ref: string;
@@ -21,14 +21,25 @@ interface ReportViewProps {
  */
 const getGoogleScholarUrl = (reference: string): string => {
     const cleaned = reference
-        .replace(/https?:\/\/[^\s]+/ig, '')              // Remove URLs
-        .replace(/\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/ig, '') // Remove bare DOIs
-        .replace(/doi:\s*/ig, '')                        // Remove dangling "doi:" text
+        .replace(/https?:\/\/[^\s]+/gi, '')              // Remove URLs
+        .replace(/\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/gi, '') // Remove bare DOIs
+        .replace(/doi:\s*/gi, '')                        // Remove dangling "doi:" text
         .replace(/[@{}]/g, '')                           // Remove BibTeX artifacts
         .replace(/\s{2,}/g, ' ')                         // Collapse multiple spaces
         .trim()
         .slice(0, 200);                                  // Google Scholar has query length limits
     return `https://scholar.google.com/scholar?q=${encodeURIComponent(cleaned)}`;
+};
+
+const getBaiduScholarUrl = (reference: string): string => {
+    const cleaned = reference
+        .replace(/\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/gi, '')
+        .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '')
+        .replace(/https?:\/\/[^\s]+/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+        .slice(0, 180);
+    return `https://xueshu.baidu.com/s?wd=${encodeURIComponent(cleaned)}`;
 };
 
 /**
@@ -69,6 +80,17 @@ const StatusBadge: React.FC<{ result: CheckResult }> = ({ result }) => {
         );
     }
     if (!result.exists) {
+        if (result.resolutionState === 'WARNING_DOMESTIC_TRANSLATED' || result.domesticFlags?.isSuspectedChineseOrDomestic) {
+            return (
+                <span
+                    className="inline-flex items-center space-x-1 px-2.5 py-1 bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30 rounded-full text-xs font-bold cursor-help"
+                    title={result.resolutionTooltip || DOMESTIC_TRANSLATED_TOOLTIP}
+                >
+                    <AlertTriangle size={12} />
+                    <span>WARNING_DOMESTIC_TRANSLATED</span>
+                </span>
+            );
+        }
         return (
             <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 dark:bg-rose-500/15 text-red-700 dark:text-rose-400 rounded-full text-xs font-bold">
                 <XCircle size={12} />
@@ -107,12 +129,14 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
     const results = useMemo(() => items.filter(i => i.result), [items]);
     const stats = useMemo(() => {
         const verified = results.filter(r => r.result!.exists && r.result!.matchConfidence > 80).length;
+        const verifiedOpenAlex = results.filter(r => r.result!.exists && (r.result!.resolutionState === 'VERIFIED_OPENALEX' || r.result!.source === 'OpenAlex')).length;
         const partial = results.filter(r => r.result!.exists && r.result!.matchConfidence > 50 && r.result!.matchConfidence <= 80).length;
         const mismatch = results.filter(r => r.result!.exists && r.result!.matchConfidence <= 50).length;
+        const domestic = results.filter(r => !r.result!.exists && (r.result!.resolutionState === 'WARNING_DOMESTIC_TRANSLATED' || r.result!.domesticFlags?.isSuspectedChineseOrDomestic)).length;
         const notFound = results.filter(r => !r.result!.exists).length;
         const withIssues = results.filter(r => r.result!.issues.length > 0).length;
         const retracted = results.filter(r => r.result!.retracted).length;
-        return { verified, partial, mismatch, notFound, withIssues, retracted, total: results.length };
+        return { verified, verifiedOpenAlex, partial, mismatch, domestic, notFound, withIssues, retracted, total: results.length };
     }, [results]);
 
     // Temporal distribution stats
@@ -146,6 +170,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                 case 'verified': return r.result.exists && r.result.matchConfidence > 80;
                 case 'partial': return r.result.exists && r.result.matchConfidence > 50 && r.result.matchConfidence <= 80;
                 case 'mismatch': return r.result.exists && r.result.matchConfidence <= 50;
+                case 'domestic': return !r.result.exists && (r.result.resolutionState === 'WARNING_DOMESTIC_TRANSLATED' || Boolean(r.result.domesticFlags?.isSuspectedChineseOrDomestic));
                 case 'notfound': return !r.result.exists;
                 case 'issues': return r.result.issues.length > 0;
                 default: return true;
@@ -172,7 +197,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
     };
 
     const handleEmailReport = () => {
-        const statsStr = `Total: ${items.length}\nVerified: ${stats.verified}\nPartial: ${stats.partial}\nMismatch: ${stats.mismatch}\nNot Found: ${stats.notFound}\nIssues: ${stats.withIssues}`;
+        const statsStr = `Total: ${items.length}\nVerified: ${stats.verified}\nPartial: ${stats.partial}\nMismatch: ${stats.mismatch}\nDomestic/Translated Warning: ${stats.domestic}\nNot Found: ${stats.notFound}\nIssues: ${stats.withIssues}`;
         const subject = encodeURIComponent('Reference Validation Report');
         const body = encodeURIComponent(`Here is the summary of the validation report:\n\n${statsStr}\n\nPlease find the detailed Excel report attached (you need to download it first and attach it manually).`);
         window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -285,13 +310,13 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                 <div className="text-2xl font-bold text-yellow-700">{stats.partial}</div>
                                 <div className="text-xs text-yellow-600 dark:text-amber-400 font-medium">Partial</div>
                             </div>
+                            <div className="bg-orange-50 dark:bg-orange-500/10 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-orange-700">{stats.mismatch}</div>
+                                <div className="text-xs text-orange-600 dark:text-orange-400 font-medium">Mismatch</div>
+                            </div>
                             <div className="bg-red-50 dark:bg-rose-500/10 rounded-lg p-3 text-center">
                                 <div className="text-2xl font-bold text-red-700 dark:text-rose-400">{stats.notFound}</div>
                                 <div className="text-xs text-red-600 dark:text-rose-400 font-medium">Not Found</div>
-                            </div>
-                            <div className="bg-orange-50 rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold text-orange-700">{stats.withIssues}</div>
-                                <div className="text-xs text-orange-600 dark:text-amber-400 font-medium">With Issues</div>
                             </div>
                         </div>
                         {stats.retracted > 0 && (
@@ -333,9 +358,9 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                     </div>
 
                     {/* Filter bar (hidden when printing) */}
-                    <div className="flex items-center space-x-2 mb-4 print:hidden">
+                    <div className="flex flex-wrap items-center gap-2 mb-4 print:hidden">
                         <Filter size={14} className="text-slate-400" />
-                        {(['all', 'verified', 'partial', 'mismatch', 'notfound', 'issues'] as FilterType[]).map(f => (
+                        {(['all', 'verified', 'partial', 'mismatch', 'domestic', 'notfound', 'issues'] as FilterType[]).map(f => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
@@ -349,6 +374,7 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                  f === 'verified' ? `Verified (${stats.verified})` :
                                  f === 'partial' ? `Partial (${stats.partial})` :
                                  f === 'mismatch' ? `Mismatch (${stats.mismatch})` :
+                                 f === 'domestic' ? `Domestic Warning (${stats.domestic})` :
                                  f === 'notfound' ? `Not Found (${stats.notFound})` :
                                  `Issues (${stats.withIssues})`}
                             </button>
@@ -363,22 +389,25 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
 
                             const isVerified = result.exists && result.matchConfidence > 80;
                             const isPartial = result.exists && result.matchConfidence <= 80;
+                            const isDomestic = !result.exists && (result.resolutionState === 'WARNING_DOMESTIC_TRANSLATED' || Boolean(result.domesticFlags?.isSuspectedChineseOrDomestic));
                             const isNotFound = !result.exists;
 
                             return (
                                 <div
                                     key={idx}
                                     className={`bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border overflow-hidden print:break-inside-avoid ${
-                                        result.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : ''
+                                        result.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' :
+                                        isDomestic ? 'border-amber-400 border-2 dark:border-amber-500/40' : ''
                                     }`}
                                 >
                                     {/* Reference header */}
                                     <div className={`px-4 py-2.5 flex items-center justify-between ${
                                         isVerified ? 'bg-green-50 dark:bg-emerald-500/10 border-b dark:border-slate-700/50 border-green-100 dark:border-emerald-500/10' :
                                         isPartial ? 'bg-yellow-50 dark:bg-amber-500/10 border-b dark:border-slate-700/50 border-yellow-100 dark:border-amber-500/10' :
+                                        isDomestic ? 'bg-amber-50 dark:bg-amber-500/15 border-b dark:border-slate-700/50 border-amber-200 dark:border-amber-500/20' :
                                         'bg-red-50 dark:bg-rose-500/10 border-b dark:border-slate-700/50 border-red-100 dark:border-rose-500/10'
                                     }`}>
-                                        <div className="flex items-center space-x-3">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-full">#{idx + 1}</span>
                                             <StatusBadge result={result} />
                                             {item.duplicateOf !== undefined && (
@@ -410,6 +439,13 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                 {item.ref}
                                             </div>
                                         </div>
+
+                                        {/* Domestic Warning Banner */}
+                                        {isDomestic && (
+                                            <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-600/50 rounded-lg text-xs text-amber-900 dark:text-amber-200">
+                                                <strong>Amber Warning:</strong> {result.resolutionTooltip || DOMESTIC_TRANSLATED_TOOLTIP}
+                                            </div>
+                                        )}
 
                                         {/* Found result */}
                                         {result.exists && (
@@ -477,6 +513,17 @@ export const ReportView: React.FC<ReportViewProps> = ({ items, onBack }) => {
                                                 >
                                                     <Search size={12} />
                                                     <span>{result.matchConfidence <= 50 ? 'Search on Google Scholar (without DOI)' : 'Search on Google Scholar'}</span>
+                                                </a>
+                                            )}
+                                            {isDomestic && (
+                                                <a
+                                                    href={getBaiduScholarUrl(item.ref)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-500/20 dark:text-amber-300 dark:hover:bg-amber-500/30 text-xs font-medium rounded-md transition-colors"
+                                                >
+                                                    <Search size={12} />
+                                                    <span>Check CNKI / Baidu Scholar</span>
                                                 </a>
                                             )}
                                         </div>

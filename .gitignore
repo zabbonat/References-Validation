@@ -14,6 +14,8 @@ dist
 dist-electron
 release
 *.local
+.env
+.env.*
 
 # Editor directories and files
 .vscode/*

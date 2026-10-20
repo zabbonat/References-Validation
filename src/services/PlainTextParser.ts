@@ -4,6 +4,8 @@
  * into structured metadata for batch validation.
  */
 
+import { cleanTitleForAPISearch } from '../utils/referenceHeuristics';
+
 export interface ParsedPlainTextRef {
     raw: string;
     title?: string;
@@ -54,12 +56,15 @@ const extractRefNumber = (ref: string): number | undefined => {
 };
 
 /**
- * Parse a Chinese-style reference with [J], [M], [C], etc. markers
- * Format: [N]Authors. Title[J]. Journal, Year, Vol(Issue): Pages. DOI:...
+ * Parse a Chinese-style reference with [J], [M], [C], [D], [R], [S], [P], [N], [EB/OL] markers
+ * Formats supported:
+ *  - [N] Authors. Title [J]. Journal, Year, Vol(Issue): Pages. DOI:...
+ *  - Authors (Year). Title [J]. Journal, Vol(Issue), Pages. [in Chinese]
  */
 const parseChineseStyle = (ref: string): ParsedPlainTextRef | null => {
-    // Detect Chinese-style markers
-    if (!/[\s*[JMCDRSZN]\s*\]/.test(ref)) return null;
+    // Detect Chinese-style GB/T 7714 markers
+    const gbtRegex = /\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/i;
+    if (!gbtRegex.test(ref)) return null;
 
     const result: ParsedPlainTextRef = { raw: ref };
     result.refNumber = extractRefNumber(ref);
@@ -69,27 +74,38 @@ const parseChineseStyle = (ref: string): ParsedPlainTextRef | null => {
     // Remove ref number prefix
     const cleaned = ref.replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '').trim();
 
-    // Split on the type marker [J], [M], etc.
-    const markerMatch = cleaned.match(/^(.*?)[\s*[JMCDRSZN]\s*\]/);
+    // Split on the type marker [J], [M], [EB/OL], etc.
+    const markerMatch = cleaned.match(/^(.*?)\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/i);
     if (markerMatch) {
         const beforeMarker = markerMatch[1].trim();
         const afterMarker = cleaned.substring(markerMatch[0].length).trim();
 
-        // Before marker: "Authors. Title" — split on the LAST period before the marker
-        // The title is typically after the last author-related period
-        const authorTitleSplit = beforeMarker.match(/^(.+?)\.\s*(.+?)\.?\s*$/);
-        if (authorTitleSplit) {
-            result.authors = authorTitleSplit[1].trim().replace(/\.$/, '');
-            result.title = authorTitleSplit[2].trim().replace(/\.$/, '');
+        // Check if beforeMarker has an APA-like "(Year)." separator, e.g. "Zhang, L., & Wang, Y. (2023). Title"
+        const apaYearSplit = beforeMarker.match(/^(.+?)\s*\((\d{4})\)\.\s*(.+?)\.?\s*$/);
+        if (apaYearSplit) {
+            result.authors = apaYearSplit[1].trim().replace(/\.$/, '');
+            result.year = apaYearSplit[2];
+            result.title = cleanTitleForAPISearch(apaYearSplit[3]);
         } else {
-            // Fallback: entire before-marker text is the title
-            result.title = beforeMarker.replace(/\.$/, '');
+            // Standard GB/T 7714: "Authors. Title" — split on the LAST period before the marker
+            // Greedy (.+) before `\.\s+` ensures we don't split prematurely on author initials like "Zhang, L."
+            const authorTitleSplit = beforeMarker.replace(/\.$/, '').match(/^(.+)\.\s*([^.]+)$/);
+            if (authorTitleSplit) {
+                result.authors = authorTitleSplit[1].trim().replace(/\.$/, '');
+                result.title = cleanTitleForAPISearch(authorTitleSplit[2]);
+            } else {
+                // Fallback: entire before-marker text is the title
+                result.title = cleanTitleForAPISearch(beforeMarker);
+            }
         }
 
-        // After marker: ".Journal, Year, Vol(Issue): Pages"
+        // After marker: ". Journal, Year, Vol(Issue): Pages" or ". Journal, Vol(Issue), Pages. [in Chinese]"
         if (afterMarker) {
+            const cleanAfter = afterMarker
+                .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '')
+                .trim();
             // Extract journal (first segment before comma or year)
-            const journalMatch = afterMarker.match(/^\.?\s*([^,]+?)[\s,]*(?:\d{4}|$)/);
+            const journalMatch = cleanAfter.match(/^\.?\s*([^,]+?)[\s,]*(?:\d{4}|$)/);
             if (journalMatch) {
                 result.journal = journalMatch[1].trim().replace(/\.$/, '');
             }
@@ -98,10 +114,7 @@ const parseChineseStyle = (ref: string): ParsedPlainTextRef | null => {
 
     // Clean up title — remove trailing dots and markers
     if (result.title) {
-        result.title = result.title
-            .replace(/[\s*[JMCDRSZN]\s*\]/g, '')
-            .replace(/\.$/, '')
-            .trim();
+        result.title = cleanTitleForAPISearch(result.title);
     }
 
     return result;
@@ -117,8 +130,11 @@ const parseAPAStyle = (ref: string): ParsedPlainTextRef | null => {
     result.doi = extractDOI(ref);
     result.year = extractYear(ref);
 
-    // Remove ref number prefix
-    const cleaned = ref.replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '').trim();
+    // Remove ref number prefix and trailing language tags like [in Chinese]
+    const cleaned = ref
+        .replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '')
+        .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '')
+        .trim();
 
     // Try APA pattern: Authors (Year). Title. Journal...
     const apaMatch = cleaned.match(
@@ -128,7 +144,7 @@ const parseAPAStyle = (ref: string): ParsedPlainTextRef | null => {
     if (apaMatch) {
         result.authors = apaMatch[1].trim().replace(/\.$/, '');
         result.year = apaMatch[2];
-        result.title = apaMatch[3].trim();
+        result.title = cleanTitleForAPISearch(apaMatch[3]);
         
         // The 4th group is journal + vol/issue/pages
         const journalPart = apaMatch[4];
@@ -167,7 +183,7 @@ export const parseVancouverStyle = (ref: string): ParsedPlainTextRef | null => {
     
     if (segments.length >= 3) {
         result.authors = segments[0].trim();
-        result.title = segments[1].trim();
+        result.title = cleanTitleForAPISearch(segments[1].trim());
         // Journal is typically the 3rd segment
         const journalSeg = segments[2];
         const journalName = journalSeg.match(/^([^;,\d]+)/);
@@ -189,11 +205,12 @@ export const parseGeneric = (ref: string): ParsedPlainTextRef => {
     result.doi = extractDOI(ref);
     result.year = extractYear(ref);
 
-    // Remove ref number prefix, DOI, URLs, years in parentheses
+    // Remove ref number prefix, DOI, URLs, years in parentheses, and language tags
     const cleaned = ref
         .replace(/^\s*[[(\s]*\d{1,4}[\])\s]*[.\s]?/, '')
         .replace(/(?:DOI\s*[：:]\s*)10\.\d{4,9}\/[^\s,;]+/gi, '')
         .replace(/https?:\/\/[^\s,]+/gi, '')
+        .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '')
         .replace(/\(?\b(19|20)\d{2}\b\)?/g, '')
         .trim();
 
@@ -231,7 +248,7 @@ export const parseGeneric = (ref: string): ParsedPlainTextRef => {
             }
         }
 
-        result.title = segments[bestTitleIdx];
+        result.title = cleanTitleForAPISearch(segments[bestTitleIdx]);
 
         // Find authors: the segment that looks most like an author list
         for (let i = 0; i < segments.length; i++) {
@@ -251,7 +268,7 @@ export const parseGeneric = (ref: string): ParsedPlainTextRef => {
             }
         }
     } else if (segments.length === 1) {
-        result.title = segments[0];
+        result.title = cleanTitleForAPISearch(segments[0]);
     }
 
     return result;
@@ -278,6 +295,13 @@ export const parsePlainTextRefs = (text: string): ParsedPlainTextRef[] => {
         .map(line => line.trim())
         .filter(line => line.length > 10) // Skip empty/short lines
         .map(parsePlainTextRef);
+};
+
+/**
+ * Helper returning raw reference strings (used by batch scripts)
+ */
+export const parseReferences = (text: string): string[] => {
+    return parsePlainTextRefs(text).map(r => r.raw);
 };
 
 /**

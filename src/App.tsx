@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { parseBibTex } from './services/BibTexService';
-import { parsePlainTextRefs, detectDuplicates, parseGeneric } from './services/PlainTextParser';
-import { checkWithFallback, BATCH_REQUEST_DELAY, type CheckResult } from './services/SearchService';
+import { parsePlainTextRefs, parsePlainTextRef, detectDuplicates } from './services/PlainTextParser';
+import { checkWithFallback, BATCH_REQUEST_DELAY, DOMESTIC_TRANSLATED_TOOLTIP, type CheckResult } from './services/SearchService';
 import { generateBibFileContent, generateAPAFileContent, generateMLAFileContent, generateISO690FileContent, generateRISFileContent, downloadFile, downloadBibFile, copyToClipboard } from './services/BibExportService';
 import { CheckResultCard } from './components/CheckResultCard';
 import { ReportView } from './components/ReportView';
@@ -57,7 +57,19 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
   pages={120--125},
   year={2017}
 }
-% NOTE: This paper is published in a known predatory journal`;
+% NOTE: This paper is published in a known predatory journal
+
+@article{zhang2023digital,
+  title={Digital transformation and enterprise innovation performance [J]},
+  author={Zhang, L. and Wang, Y.},
+  journal={Journal of Peking University (Philosophy and Social Sciences Edition)},
+  volume={60},
+  number={4},
+  pages={112--125},
+  year={2023},
+  note={[in Chinese]}
+}
+% NOTE: Translated Chinese domestic reference (CNKI/GB-T 7714) without international DOI`;
 
 // Electron IPC (mocked for web if not present)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +101,7 @@ const cleanLatexInput = (text: string): string => {
     .join('\n');
 };
 
-type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'notfound' | 'issues';
+type FilterType = 'all' | 'verified' | 'partial' | 'mismatch' | 'domestic' | 'notfound' | 'issues';
 
 interface BatchItem {
   ref: string;
@@ -218,7 +230,7 @@ function App() {
   // Toast helper
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast({ message, type, visible: true });
+    setToast({ message, type: true && type, visible: true });
     toastTimeoutRef.current = setTimeout(() => {
       setToast(prev => prev ? { ...prev, visible: false } : null);
       setTimeout(() => setToast(null), 300);
@@ -314,31 +326,31 @@ function App() {
           authors: p.entryTags.author,
           journal: p.entryTags.journal,
           year: p.entryTags.year
-        });
+        }, cleanedText);
       } else {
-        const parsedText = parseGeneric(cleanedText);
+        const parsedText = parsePlainTextRef(cleanedText);
         const searchQuery = `${parsedText.title || ''} ${parsedText.authors || ''}`.trim() || cleanedText;
         result = await checkWithFallback(searchQuery, {
           title: parsedText.title,
           authors: parsedText.authors,
           journal: parsedText.journal,
           year: parsedText.year
-        });
+        }, cleanedText);
       }
     } else {
-      const parsedText = parseGeneric(cleanedText);
+      const parsedText = parsePlainTextRef(cleanedText);
       const searchQuery = `${parsedText.title || ''} ${parsedText.authors || ''}`.trim() || cleanedText;
       result = await checkWithFallback(searchQuery, {
         title: parsedText.title,
         authors: parsedText.authors,
         journal: parsedText.journal,
         year: parsedText.year
-      });
+      }, cleanedText);
     }
 
     setQuickResult(result);
     setLoadingQuick(false);
-  };
+  }
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -355,8 +367,7 @@ function App() {
       if (ipcRenderer) {
         ipcRenderer.removeAllListeners('trigger-check');
       }
-    }
-   
+    };
   }, []);
 
   async function handleBatchCheck(text?: string) {
@@ -419,7 +430,7 @@ function App() {
           authors: p.entryTags.author,
           journal: p.entryTags.journal,
           year: p.entryTags.year
-        });
+        }, newResults[i].rawRef || newResults[i].ref);
 
         newResults[i] = { ...newResults[i], result: res, loading: false };
         setBatchResults([...newResults]);
@@ -485,7 +496,7 @@ function App() {
       }
       if (!batchCancelledRef.current) showToast(`✓ Batch complete! ${plainRefs.length} references checked.`, 'success');
     }
-  };
+  }
 
   const clearSession = () => {
     if (confirm('Are you sure you want to clear your current session? This will remove all loaded results.')) {
@@ -505,13 +516,15 @@ function App() {
     if (!allBatchDone) return null;
     const results = batchResults.filter(r => r.result);
     const verified = results.filter(r => r.result!.exists && r.result!.matchConfidence > 80).length;
+    const verifiedOpenAlex = results.filter(r => r.result!.exists && (r.result!.resolutionState === 'VERIFIED_OPENALEX' || r.result!.source === 'OpenAlex')).length;
     const partial = results.filter(r => r.result!.exists && r.result!.matchConfidence > 50 && r.result!.matchConfidence <= 80).length;
     const mismatch = results.filter(r => r.result!.exists && r.result!.matchConfidence <= 50).length;
+    const domestic = results.filter(r => !r.result!.exists && (r.result!.resolutionState === 'WARNING_DOMESTIC_TRANSLATED' || Boolean(r.result!.domesticFlags?.isSuspectedChineseOrDomestic))).length;
     const notFound = results.filter(r => !r.result!.exists).length;
     const withIssues = results.filter(r => r.result!.issues.length > 0).length;
     const retracted = results.filter(r => r.result!.retracted).length;
     const predatory = results.filter(r => r.result!.predatory).length;
-    return { verified, partial, mismatch, notFound, withIssues, retracted, predatory, total: results.length };
+    return { verified, verifiedOpenAlex, partial, mismatch, domestic, notFound, withIssues, retracted, predatory, total: results.length };
   }, [allBatchDone, batchResults]);
 
   // Filter batch results
@@ -523,6 +536,7 @@ function App() {
         case 'verified': return r.result.exists && r.result.matchConfidence > 80;
         case 'partial': return r.result.exists && r.result.matchConfidence > 50 && r.result.matchConfidence <= 80;
         case 'mismatch': return r.result.exists && r.result.matchConfidence <= 50;
+        case 'domestic': return !r.result.exists && (r.result.resolutionState === 'WARNING_DOMESTIC_TRANSLATED' || Boolean(r.result.domesticFlags?.isSuspectedChineseOrDomestic));
         case 'notfound': return !r.result.exists;
         case 'issues': return r.result.issues.length > 0;
         default: return true;
@@ -712,7 +726,7 @@ function App() {
 
           {/* Summary stats (shown when done) */}
           {allBatchDone && stats && (
-            <div className="flex items-center space-x-4 text-xs mb-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
               <span className="flex items-center space-x-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full font-semibold">
                 <span>✓ {stats.verified} Verified</span>
               </span>
@@ -724,6 +738,14 @@ function App() {
               {stats.mismatch > 0 && (
                 <span className="flex items-center space-x-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full font-semibold">
                   <span>⚠ {stats.mismatch} Mismatch</span>
+                </span>
+              )}
+              {stats.domestic > 0 && (
+                <span
+                  className="flex items-center space-x-1 px-2.5 py-1 bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 rounded-full font-semibold cursor-help"
+                  title={DOMESTIC_TRANSLATED_TOOLTIP}
+                >
+                  <span>⚠ {stats.domestic} Domestic/Translated</span>
                 </span>
               )}
               {stats.notFound > 0 && (
@@ -752,9 +774,9 @@ function App() {
 
           {/* Filter bar (shown when done) */}
           {allBatchDone && (
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Filter size={14} className="text-slate-400" />
-              {(['all', 'verified', 'partial', 'mismatch', 'notfound', 'issues'] as FilterType[]).map(f => (
+              {(['all', 'verified', 'partial', 'mismatch', 'domestic', 'notfound', 'issues'] as FilterType[]).map(f => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -768,6 +790,7 @@ function App() {
                    f === 'verified' ? `Verified (${stats?.verified || 0})` :
                    f === 'partial' ? `Partial (${stats?.partial || 0})` :
                    f === 'mismatch' ? `Mismatch (${stats?.mismatch || 0})` :
+                   f === 'domestic' ? `Domestic Warning (${stats?.domestic || 0})` :
                    f === 'notfound' ? `Not Found (${stats?.notFound || 0})` :
                    `Issues (${stats?.withIssues || 0})`}
                 </button>
@@ -901,7 +924,7 @@ function App() {
               )}
               <textarea
                 className="w-full h-64 p-3 border border-slate-300 dark:border-slate-500 dark:bg-[#0B1120] dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y text-sm font-mono"
-                placeholder={`Single reference for Quick Check, or multiple BibTeX entries for Batch Check...
+                placeholder={`Single reference for Quick Check, or multiple BibTeX / plain-text entries for Batch Check...
 
 Example BibTeX:
 @article{key, title={...}, author={...}, year={2024}}
@@ -909,8 +932,8 @@ Example BibTeX:
 Or APA/plain text:
 Smith, J. (2024). Title of article. Journal Name.
 
-Or Numbered/Plain text:
-[1] Author. Title. Journal, 2024, 10(2): 123-456.`}
+Or GB/T 7714 / Chinese domestic reference:
+[1] Zhang, L., & Wang, Y. (2023). Digital transformation and enterprise innovation performance [J]. Journal of Peking University (Philosophy and Social Sciences Edition), 60(4), 112-125. [in Chinese]`}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
               />

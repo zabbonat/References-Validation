@@ -1,8 +1,20 @@
 import { searchSemanticScholar, formatSemanticScholarAPA, generateSemanticScholarBibTeX, formatSemanticScholarMLA, formatSemanticScholarISO690 } from './SemanticScholarService';
-import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX, formatOpenAlexMLA, formatOpenAlexISO690 } from './OpenAlexService';
+import { searchOpenAlex, formatOpenAlexAPA, generateOpenAlexBibTeX, formatOpenAlexMLA, formatOpenAlexISO690, matchOpenAlexAuthors, computeOpenAlexTitleSimilarity, getPoliteMailto } from './OpenAlexService';
 import { searchArxiv, resolveArxivById, formatArxivAPA, formatArxivMLA, formatArxivISO690, generateArxivBibTeX } from './ArxivService';
 import { searchDblp, formatDblpAPA, formatDblpMLA, formatDblpISO690, generateDblpBibTeX } from './DblpService';
 import { isPredatory } from './PredatoryService';
+import { detectDomesticReferenceHeuristics, cleanTitleForAPISearch, type DomesticSourceFlags } from '../utils/referenceHeuristics';
+import { parsePlainTextRef } from './PlainTextParser';
+
+export type ValidationResolutionState =
+    | 'VERIFIED_CROSSREF'
+    | 'VERIFIED_OPENALEX'
+    | 'VERIFIED_OTHER_FALLBACK'
+    | 'WARNING_DOMESTIC_TRANSLATED'
+    | 'UNVERIFIED_HIGH_RISK';
+
+export const DOMESTIC_TRANSLATED_TOOLTIP =
+    'Non-DOI / Domestic Database Reference (e.g., CNKI/Wanfang): Translated title or GB/T 7714 format detected. Cannot be verified on international registries; requires manual check of original language source.';
 
 export interface CheckResult {
     exists: boolean;
@@ -38,6 +50,11 @@ export interface CheckResult {
 
     source: 'CrossRef' | 'SemanticScholar' | 'OpenAlex' | 'Arxiv' | 'DBLP' | 'NotFound';
     fallbackSource?: 'SemanticScholar' | 'OpenAlex' | 'Arxiv' | 'DBLP'; // Source of correction
+
+    // Domestic / Chinese Heuristic Flags & Granular Resolution State
+    domesticFlags?: DomesticSourceFlags;
+    resolutionState?: ValidationResolutionState;
+    resolutionTooltip?: string;
 }
 
 // Rate limiting delay between batch requests (ms)
@@ -84,6 +101,11 @@ const cleanQuery = (text: string): string => {
 const extractLikelyTitle = (rawRef: string): string | null => {
     let ref = rawRef.trim();
     if (!ref || ref.length < 10) return null;
+
+    // Strip GB/T 7714 markers ([J], [M], [EB/OL], etc.) and explicit language tags ([in Chinese])
+    ref = ref
+        .replace(/\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/gi, '')
+        .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '');
 
     // Remove page numbers: "517-55", "pp. 123-456", "p. 45"
     ref = ref.replace(/\b[Pp]{1,2}\.?\s*\d+[-–]\d+/g, '');
@@ -142,10 +164,12 @@ const extractLikelyTitle = (rawRef: string): string | null => {
     }
 
     // Final cleanup
-    ref = ref
-        .replace(/\s{2,}/g, ' ')
-        .replace(/^[,;.\s]+|[,;.\s]+$/g, '')
-        .trim();
+    ref = cleanTitleForAPISearch(
+        ref
+            .replace(/\s{2,}/g, ' ')
+            .replace(/^[,;.\s]+|[,;.\s]+$/g, '')
+            .trim()
+    );
 
     // Only return if we got something meaningful (at least 10 chars and different from input)
     if (ref.length >= 10 && ref.length < rawRef.length * 0.95) {
@@ -157,6 +181,7 @@ const extractLikelyTitle = (rawRef: string): string | null => {
 // ===== MINIMUM TITLE SIMILARITY TO ACCEPT A RESULT =====
 // Below this threshold, the result is treated as "Not Found" rather than showing a different paper
 const MIN_TITLE_SIMILARITY = 70; // Minimum title similarity to consider a match
+const OPENALEX_FALLBACK_THRESHOLD = 65; // 0.65 acceptance threshold for OpenAlex fallback when authors match
 
 export const normalize = (str: string): string => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\w\s]/g, '').trim();
 
@@ -230,8 +255,8 @@ const calculateSimilarity = (str1: string, str2: string): number => {
 export const computeTitleSim = (expectedTitle: string, resultTitle: string): number => {
     if (!expectedTitle || !resultTitle) return 0;
     
-    const cleanExpected = normalize(expectedTitle);
-    const cleanResult = normalize(resultTitle);
+    const cleanExpected = normalize(cleanTitleForAPISearch(expectedTitle));
+    const cleanResult = normalize(cleanTitleForAPISearch(resultTitle));
 
     let sim = calculateSimilarity(cleanExpected, cleanResult);
 
@@ -246,37 +271,11 @@ export const computeTitleSim = (expectedTitle: string, resultTitle: string): num
 /**
  * Computes author similarity by checking if the family names of the result authors 
  * are present in the expected authors string or the original user query.
+ * Accounts for both Western ("Y. Wang") and Pinyin ("Wang Y.") name orders.
  */
 export const computeAuthorSim = (expectedAuthorsStr: string, resultAuthors: string[]): number => {
     if (!expectedAuthorsStr || resultAuthors.length === 0) return 100;
-    
-    const nValidation = normalize(expectedAuthorsStr);
-    let matchCount = 0;
-    let validAuthors = 0;
-
-    for (const a of resultAuthors) {
-        // Extract the last word as a naive family name approximation for OpenAlex/SS strings
-        // Filter out DBLP disambiguation digits (e.g. "0001", "0002")
-        const parts = normalize(a).split(' ').filter(p => !/^\d+$/.test(p));
-        if (parts.length === 0) continue;
-        
-        const family = parts[parts.length - 1];
-        if (family.length > 1) { // > 1 to handle 2-letter last names like Ho, Wu, Li
-            validAuthors++;
-            if (nValidation.includes(family)) {
-                matchCount++;
-            }
-        }
-    }
-    
-    if (validAuthors === 0) return 100;
-
-    const hasEtAl = /et\s*al|and\s*others/i.test(expectedAuthorsStr);
-    if (hasEtAl && matchCount > 0) {
-        return 100;
-    }
-
-    return Math.round((matchCount / validAuthors) * 100);
+    return matchOpenAlexAuthors(expectedAuthorsStr, resultAuthors).authorMatchScore;
 };
 
 // Decode common LaTeX special characters in BibTeX
@@ -301,7 +300,7 @@ const firstLetterMatches = (name1: string, name2: string): boolean => {
     return clean1[0].toLowerCase() === clean2[0].toLowerCase();
 };
 
-interface ExpectedMetadata {
+export interface ExpectedMetadata {
     title?: string;
     authors?: string;
     journal?: string;
@@ -357,6 +356,7 @@ const formatMLA = (item: any): string => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const formatISO690 = (item: any): string => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const authors = (item.author || []).map((a: any) => {
         const family = (a.family || '').toUpperCase();
         const given = a.given ? `, ${a.given}` : '';
@@ -409,22 +409,22 @@ const generateBibTeX = (item: any): string => {
 export const checkReference = async (rawQuery: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
     try {
         // Clean LaTeX/BibTeX artifacts from query
-        const query = cleanQuery(rawQuery);
+        const query = cleanQuery(cleanTitleForAPISearch(rawQuery));
         // Use originalQuery for validation (checking if authors/journal/year appear in the text)
         // This is important when retrying with extracted title — we still want to validate against the full text
-        const validationQuery = originalQuery ? cleanQuery(originalQuery) : query;
+        const validationQuery = originalQuery ? cleanQuery(originalQuery) : cleanQuery(rawQuery);
 
         // Also clean expected metadata if present
         const cleanedExpected = expected ? {
             ...expected,
-            title: expected.title ? cleanQuery(expected.title) : expected.title,
+            title: expected.title ? cleanTitleForAPISearch(cleanQuery(expected.title)) : expected.title,
             authors: expected.authors ? cleanQuery(expected.authors) : expected.authors,
             journal: expected.journal ? cleanQuery(expected.journal) : expected.journal,
         } : expected;
         expected = cleanedExpected;
 
-        // Fetch top 5 results for better version matching
-        const response = await fetch(`https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=5`);
+        // Fetch top 5 results for better version matching (using rotating Polite Pool email)
+        const response = await fetch(`https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=5&mailto=${encodeURIComponent(getPoliteMailto())}`);
         if (!response.ok) {
             return {
                 exists: false,
@@ -761,7 +761,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 // ===== DETECT FAKE AUTHORS (Quick Check) =====
                 // Pre-clean the validation query: remove reference markers, DOI, pages, volume/issue, years
                 const cleanedValidation = validationQuery
-                    .replace(/\[\s*[JMCDRSZN]\s*\]/g, '')          // Chinese-style ref markers: [J], [M], [C], etc.
+                    .replace(/\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/gi, '') // Chinese-style ref markers: [J], [M], [C], etc.
+                    .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '')
                     .replace(/\/\/[^.]+/g, '')                      // Book series after // (e.g. //Handbook of...)
                     .replace(/DOI\s*[:：]\s*[^\s,]+/gi, '')          // DOI:10.xxx/yyy
                     .replace(/https?:\/\/[^\s,]+/gi, '')             // URLs
@@ -976,6 +977,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 };
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const isRetracted = nResultTitle.includes('retract') || nResultTitle.includes('withdraw') || 
                 (item['update-to'] && Array.isArray(item['update-to']) && item['update-to'].some((u: any) => u.type === 'retraction'));
             
@@ -999,7 +1001,7 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
                 iso690: formatISO690(item),
                 bibtex: generateBibTeX(item),
                 source: 'CrossRef',
-                matchConfidence: confidence,
+                matchConfidence: Math.round(confidence),
                 titleMatchScore: titleSim,
                 authorMatchScore: authorSim,
                 journalMatchScore: journalSim,
@@ -1163,6 +1165,22 @@ const extractArxivId = (text: string): string | null => {
  * Picks the best result across all sources using a unified scoring function.
  */
 const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
+    // Auto-parse structured plain-text references when expected metadata is not explicitly provided
+    let effectiveExpected = expected;
+    if (!effectiveExpected?.title && !originalQuery) {
+        const autoParsed = parsePlainTextRef(query);
+        if (autoParsed.title && autoParsed.title.length > 5 && autoParsed.title.length < query.length * 0.92) {
+            effectiveExpected = {
+                title: autoParsed.title,
+                authors: autoParsed.authors,
+                journal: autoParsed.journal,
+                year: autoParsed.year
+            };
+        }
+    }
+
+    const domesticFlags = detectDomesticReferenceHeuristics(originalQuery || query, effectiveExpected);
+
     // ===== DOI DIRECT LOOKUP =====
     // If the query or expected metadata contains a DOI, try direct resolution first
     const queryDOI = extractDOI(originalQuery || query);
@@ -1196,7 +1214,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
             }
         }
 
-        const doiResult = await resolveByDOI(queryDOI, expected, originalQuery || query);
+        const doiResult = await resolveByDOI(queryDOI, effectiveExpected, originalQuery || query);
         if (doiResult) {
             return doiResult;
         } else {
@@ -1210,8 +1228,8 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     if (arxivId && !queryDOI) { // Skip if we already tried via DOI
         const arxivDirectResult = await resolveArxivById(arxivId);
         if (arxivDirectResult) {
-            const titleSim = expected?.title ? computeTitleSim(expected.title, arxivDirectResult.title) : 90;
-            if (titleSim >= MIN_TITLE_SIMILARITY || !expected?.title) {
+            const titleSim = effectiveExpected?.title ? computeTitleSim(effectiveExpected.title, arxivDirectResult.title) : 90;
+            if (titleSim >= MIN_TITLE_SIMILARITY || !effectiveExpected?.title) {
                 return {
                     exists: true,
                     title: arxivDirectResult.title,
@@ -1235,13 +1253,14 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
         }
     }
 
-    const title = expected?.title || extractLikelyTitle(query) || query;
+    const title = cleanTitleForAPISearch(effectiveExpected?.title || extractLikelyTitle(query) || query);
 
     // Extract expected year from query if not explicitly provided
     const extractSource = originalQuery || query;
-    const extractedYears = !expected?.year ? Array.from(extractSource.match(/\b(19|20)\d{2}\b/g) || []) : [];
-    const expectedYear = expected?.year || (extractedYears.length > 0 ? String(extractedYears[0]) : undefined);
-    const expectedJournal = expected?.journal;
+    const extractedYears = !effectiveExpected?.year ? Array.from(extractSource.match(/\b(19|20)\d{2}\b/g) || []) : [];
+    const expectedYear = effectiveExpected?.year || (extractedYears.length > 0 ? String(extractedYears[0]) : undefined);
+    const expectedJournal = effectiveExpected?.journal;
+    const expectedAuthors = effectiveExpected?.authors;
 
     // ===== FUTURE YEAR VALIDATION =====
     const currentYear = new Date().getFullYear();
@@ -1251,13 +1270,13 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     }
 
     // Determine search title for fallback sources (clean it up for better API results)
-    const fallbackSearchTitle = expected?.title || extractLikelyTitle(query) || query;
+    const fallbackSearchTitle = cleanTitleForAPISearch(effectiveExpected?.title || extractLikelyTitle(query) || query);
     
     // For DBLP and ArXiv, appending the first author's last name massively improves precision
     // and prevents them from returning newer unrelated papers with the same title.
     let precisionSearchTitle = fallbackSearchTitle;
-    if (expected?.authors) {
-        const firstAuthor = expected.authors.split(/,| and /)[0].trim().split(/\s+/).pop();
+    if (expectedAuthors) {
+        const firstAuthor = expectedAuthors.split(/,| and /)[0].trim().split(/\s+/).pop();
         if (firstAuthor && firstAuthor.length > 1) { // > 1 handles 2-letter names like "Ho", "Li", "Wu"
             precisionSearchTitle = `${fallbackSearchTitle} ${firstAuthor}`;
         }
@@ -1268,15 +1287,41 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     // This ensures zero extra latency when papers are found in CrossRef/SS/OpenAlex.
     // When no expected metadata is available (Quick Check), use the clean extracted title
     // for CrossRef too — prevents matching on journal/author names in the raw query.
-    const crossRefQuery = expected ? query : fallbackSearchTitle;
-    const crossRefPromise = checkReference(crossRefQuery, expected, originalQuery || (expected ? undefined : query));
+    const crossRefQuery = effectiveExpected ? `${fallbackSearchTitle} ${expectedAuthors || ''}`.trim() : fallbackSearchTitle;
+    const crossRefPromise = checkReference(crossRefQuery, effectiveExpected, originalQuery || (effectiveExpected ? undefined : query));
     const ssPromise = searchSemanticScholar(fallbackSearchTitle, expectedYear).catch(() => null);
-    const oaPromise = searchOpenAlex(fallbackSearchTitle, expectedYear).catch(() => null);
+    const oaPromise = searchOpenAlex(fallbackSearchTitle, expectedYear, expectedAuthors || (originalQuery || query)).catch(() => null);
     const arxivPromise = searchArxiv(precisionSearchTitle, expectedYear).catch(() => null);
     const dblpPromise = searchDblp(precisionSearchTitle, expectedYear).catch(() => null);
 
     // Await only the 3 primary sources first
     const [crossRefResult, ssResult, oaResult] = await Promise.all([crossRefPromise, ssPromise, oaPromise]);
+
+    // Helper: check if a candidate conflicts with an explicit domestic/translated Chinese journal
+    const isConflictingDomesticVenue = (candidateJournal: string | undefined, titleSim: number, authorSim: number, candidateYear?: string): boolean => {
+        if (!domesticFlags.isSuspectedChineseOrDomestic) return false;
+        // If explicit [in Chinese] or Chinese university journal is cited, require strong journal or near-exact title+author match
+        if ((domesticFlags.hasChineseMarkers || domesticFlags.isTypicalChineseUniversityJournal) && expectedJournal) {
+            if (candidateJournal && candidateJournal.trim().length > 0) {
+                const jSim = calculateSimilarity(expectedJournal, candidateJournal);
+                if (jSim < 50 && (titleSim < 95 || authorSim < 90)) {
+                    return true;
+                }
+            } else if (domesticFlags.hasChineseMarkers && (titleSim < 90 || authorSim < 85)) {
+                return true;
+            }
+        }
+        // For GB/T 7714 references (e.g., [J]) with an explicit journal, reject candidates from a completely different venue
+        // when the year also mismatches or the title is not an exact match
+        if (domesticFlags.hasGBT7714Markers && expectedJournal && candidateJournal && candidateJournal.trim().length > 0) {
+            const jSim = calculateSimilarity(expectedJournal, candidateJournal);
+            const yearMismatch = Boolean(expectedYear && candidateYear && expectedYear !== candidateYear);
+            if (jSim < 45 && (yearMismatch || titleSim < 95 || authorSim < 85)) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     // ===== BUILD CANDIDATE LIST =====
     interface Candidate {
@@ -1289,7 +1334,13 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     const candidates: Candidate[] = [];
 
     // --- CrossRef candidate ---
-    if (crossRefResult.exists) {
+    // Note: Step 2 specifies that when CrossRef returns Not Found or confidence/similarity < 65% (0.65),
+    // we should fall back to OpenAlex.
+    if (
+        crossRefResult.exists &&
+        (!domesticFlags.isSuspectedChineseOrDomestic || crossRefResult.matchConfidence >= OPENALEX_FALLBACK_THRESHOLD) &&
+        !isConflictingDomesticVenue(crossRefResult.journal, crossRefResult.titleMatchScore, crossRefResult.authorMatchScore, crossRefResult.year)
+    ) {
         candidates.push({
             source: 'CrossRef',
             result: crossRefResult,
@@ -1308,9 +1359,14 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     // --- Semantic Scholar candidate ---
     if (ssResult) {
         const ssTitleSim = computeTitleSim(title, ssResult.title);
-        const ssAuthorSim = computeAuthorSim(expected?.authors || query, ssResult.authors);
+        const ssAuthorEval = matchOpenAlexAuthors(expectedAuthors || (originalQuery || query), ssResult.authors);
+        const ssAuthorSim = ssAuthorEval.authorMatchScore;
 
-        if (ssTitleSim >= MIN_TITLE_SIMILARITY) {
+        if (
+            ssTitleSim >= MIN_TITLE_SIMILARITY &&
+            (!expectedAuthors || ssAuthorEval.hasAuthorMatch) &&
+            !isConflictingDomesticVenue(ssResult.venue, ssTitleSim, ssAuthorSim, ssResult.year?.toString())
+        ) {
             const ssScore = scoreCandidateResult(
                 ssTitleSim,
                 ssAuthorSim,
@@ -1321,7 +1377,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
             );
 
             // Calculate overall confidence based on multiple fields, penalize if authors are completely wrong
-            const confidence = (ssTitleSim * 2 + ssAuthorSim) / 3;
+            const confidence = Math.round((ssTitleSim * 2 + ssAuthorSim) / 3);
 
             candidates.push({
                 source: 'SemanticScholar',
@@ -1352,13 +1408,24 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
         }
     }
 
-    // --- OpenAlex candidate ---
+    // --- OpenAlex candidate (Step 2 cascading fallback) ---
     if (oaResult) {
-        const oaTitleSim = computeTitleSim(title, oaResult.title);
-        const oaAuthorSim = computeAuthorSim(expected?.authors || query, oaResult.authors);
+        const oaTitleSim = Math.max(
+            computeTitleSim(title, oaResult.title),
+            computeOpenAlexTitleSimilarity(title, oaResult.title),
+            oaResult.titleSimilarityScore || 0
+        );
+        const oaAuthorEval = matchOpenAlexAuthors(expectedAuthors || (originalQuery || query), oaResult.authors);
+        const oaAuthorSim = oaAuthorEval.authorMatchScore;
 
-        if (oaTitleSim >= MIN_TITLE_SIMILARITY) {
-            const oaScore = scoreCandidateResult(
+        // Accept OpenAlex match when title similarity >= 65% (0.65) AND at least one author matches
+        const meetsOpenAlexThreshold =
+            (oaTitleSim >= MIN_TITLE_SIMILARITY || (oaTitleSim >= OPENALEX_FALLBACK_THRESHOLD && oaAuthorEval.hasAuthorMatch)) &&
+            (!expectedAuthors || oaResult.authors.length === 0 || oaAuthorEval.hasAuthorMatch) &&
+            !isConflictingDomesticVenue(oaResult.journal, oaTitleSim, oaAuthorSim, oaResult.year?.toString());
+
+        if (meetsOpenAlexThreshold) {
+            let oaScore = scoreCandidateResult(
                 oaTitleSim,
                 oaAuthorSim,
                 oaResult.year?.toString(),
@@ -1366,8 +1433,22 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                 expectedYear,
                 expectedJournal
             );
+
+            // When domestic/Chinese reference heuristics are triggered and CrossRef failed (or had low confidence),
+            // prioritize OpenAlex (which indexes MAG/CNKI records)
+            const crossRefAccepted = candidates.some(c => c.source === 'CrossRef');
+            if (domesticFlags.isSuspectedChineseOrDomestic && !crossRefAccepted) {
+                oaScore += 15;
+            }
             
-            const confidence = (oaTitleSim * 2 + oaAuthorSim) / 3;
+            const confidence = Math.round((oaTitleSim * 2 + oaAuthorSim) / 3);
+            const oaIssues: string[] = [];
+            if (!crossRefAccepted && domesticFlags.isSuspectedChineseOrDomestic) {
+                oaIssues.push('Verified via OpenAlex fallback (non-DOI / domestic record indexed in OpenAlex/MAG)');
+            }
+            if (oaAuthorSim < 50) {
+                oaIssues.push('Author Mismatch in OpenAlex fallback');
+            }
 
             candidates.push({
                 source: 'OpenAlex',
@@ -1386,11 +1467,11 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     iso690: formatOpenAlexISO690(oaResult),
                     bibtex: generateOpenAlexBibTeX(oaResult),
                     source: 'OpenAlex',
-                    matchConfidence: Math.min(90, confidence),
+                    matchConfidence: Math.min(92, confidence),
                     titleMatchScore: oaTitleSim,
                     authorMatchScore: oaAuthorSim,
                     journalMatchScore: oaResult.journal ? 85 : 50,
-                    issues: oaAuthorSim < 50 ? [`Author Mismatch in OpenAlex fallback`] : []
+                    issues: oaIssues
                 },
                 score: oaScore,
                 titleSim: oaTitleSim
@@ -1436,11 +1517,11 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     // --- arXiv candidate ---
     if (arxivResult) {
         const arxivTitleSim = computeTitleSim(title, arxivResult.title);
-        const arxivAuthorSim = computeAuthorSim(expected?.authors || query, arxivResult.authors);
+        const arxivAuthorSim = computeAuthorSim(expectedAuthors || (originalQuery || query), arxivResult.authors);
 
-        if (arxivTitleSim >= MIN_TITLE_SIMILARITY) {
+        if (arxivTitleSim >= MIN_TITLE_SIMILARITY && !isConflictingDomesticVenue(arxivResult.category, arxivTitleSim, arxivAuthorSim)) {
             const arxivScore = scoreCandidateResult(arxivTitleSim, arxivAuthorSim, arxivResult.year?.toString(), arxivResult.category, expectedYear, expectedJournal);
-            const confidence = (arxivTitleSim * 2 + arxivAuthorSim) / 3;
+            const confidence = Math.round((arxivTitleSim * 2 + arxivAuthorSim) / 3);
             fallbackCandidates.push({
                 source: 'Arxiv',
                 result: {
@@ -1475,11 +1556,11 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     // --- DBLP candidate ---
     if (dblpResult) {
         const dblpTitleSim = computeTitleSim(title, dblpResult.title);
-        const dblpAuthorSim = computeAuthorSim(expected?.authors || query, dblpResult.authors);
+        const dblpAuthorSim = computeAuthorSim(expectedAuthors || (originalQuery || query), dblpResult.authors);
 
-        if (dblpTitleSim >= MIN_TITLE_SIMILARITY) {
+        if (dblpTitleSim >= MIN_TITLE_SIMILARITY && !isConflictingDomesticVenue(dblpResult.venue, dblpTitleSim, dblpAuthorSim)) {
             const dblpScore = scoreCandidateResult(dblpTitleSim, dblpAuthorSim, dblpResult.year?.toString(), dblpResult.venue, expectedYear, expectedJournal);
-            const confidence = (dblpTitleSim * 2 + dblpAuthorSim) / 3;
+            const confidence = Math.round((dblpTitleSim * 2 + dblpAuthorSim) / 3);
             fallbackCandidates.push({
                 source: 'DBLP',
                 result: {
@@ -1537,8 +1618,9 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
         if (futureYearIssues.length > 0) winner.issues = [...winner.issues, ...futureYearIssues];
         if (invalidDoiIssue) winner.issues.push(invalidDoiIssue);
         
-        // If the best match is still terrible, return NotFound
-        if (winner.titleMatchScore < MIN_TITLE_SIMILARITY) {
+        // If the best match is still below acceptance threshold, return NotFound
+        const minThreshold = winner.source === 'OpenAlex' ? OPENALEX_FALLBACK_THRESHOLD : MIN_TITLE_SIMILARITY;
+        if (winner.titleMatchScore < minThreshold) {
             return {
                 exists: false,
                 source: 'NotFound',
@@ -1554,11 +1636,11 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
 
     // If nothing found in candidates, proceed to retry logic
     // ===== NO CANDIDATES FOUND — RETRY WITH EXTRACTED TITLE =====
-    if (!expected?.title) {
+    if (!effectiveExpected?.title && !originalQuery) {
         const extractedTitle = extractLikelyTitle(query);
         if (extractedTitle && extractedTitle !== query) {
             console.log(`[Retry] All sources failed, retrying with extracted title: "${extractedTitle}"`);
-            const retryResult = await checkWithFallback(extractedTitle, expected, query);
+            const retryResult = await _checkWithFallback(extractedTitle, effectiveExpected, query);
             if (retryResult.exists) {
                 if (invalidDoiIssue && !retryResult.issues.includes(invalidDoiIssue)) {
                     retryResult.issues.push(invalidDoiIssue);
@@ -1571,8 +1653,8 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     if (queryDOI) {
         return {
             exists: true, // Force warning instead of NotFound
-            title: expected?.title || extractLikelyTitle(query) || "Unknown Title",
-            authors: expected?.authors || "",
+            title: effectiveExpected?.title || extractLikelyTitle(query) || "Unknown Title",
+            authors: effectiveExpected?.authors || "",
             year: expectedYear || "",
             journal: expectedJournal || "",
             url: `https://doi.org/${queryDOI}`,
@@ -1598,13 +1680,63 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     };
 };
 
+/**
+ * Assigns the Step 3 granular validation resolution state and UI tooltip
+ * based on CrossRef/OpenAlex match status and Chinese/domestic heuristic flags.
+ */
+export const assignGranularResolutionState = (
+    result: CheckResult,
+    domesticFlags: DomesticSourceFlags
+): CheckResult => {
+    result.domesticFlags = domesticFlags;
+
+    if (result.exists) {
+        if (result.source === 'OpenAlex' || result.fallbackSource === 'OpenAlex') {
+            result.resolutionState = 'VERIFIED_OPENALEX';
+            result.resolutionTooltip =
+                'Matched via OpenAlex Fallback: Verified against OpenAlex/MAG index (common for non-DOI domestic/CNKI records).';
+        } else if (result.source === 'CrossRef') {
+            result.resolutionState = 'VERIFIED_CROSSREF';
+            result.resolutionTooltip = 'Verified via CrossRef international DOI registry.';
+        } else {
+            result.resolutionState = 'VERIFIED_OTHER_FALLBACK';
+            result.resolutionTooltip = `Verified via ${result.source} fallback registry.`;
+        }
+    } else {
+        if (domesticFlags.isSuspectedChineseOrDomestic) {
+            result.resolutionState = 'WARNING_DOMESTIC_TRANSLATED';
+            result.resolutionTooltip = DOMESTIC_TRANSLATED_TOOLTIP;
+            const markerNote = `Domestic/Translated markers detected: ${domesticFlags.detectedMarkers.join(', ')}`;
+            if (!result.issues.includes(markerNote)) {
+                result.issues = [markerNote, ...result.issues];
+            }
+        } else {
+            result.resolutionState = 'UNVERIFIED_HIGH_RISK';
+            result.resolutionTooltip =
+                'Failed on both CrossRef and OpenAlex, and no domestic/translation markers found (high probability of LLM citation hallucination).';
+        }
+    }
+
+    return result;
+};
+
 export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
+    const rawRefForHeuristics = originalQuery || query;
+    const autoParsed = !expected?.title ? parsePlainTextRef(rawRefForHeuristics) : undefined;
+    const domesticFlags = detectDomesticReferenceHeuristics(rawRefForHeuristics, {
+        title: expected?.title || autoParsed?.title,
+        authors: expected?.authors || autoParsed?.authors,
+        journal: expected?.journal || autoParsed?.journal,
+        year: expected?.year || autoParsed?.year
+    });
+
     const result = await _checkWithFallback(query, expected, originalQuery);
-    const journalToCheck = result.journal || expected?.journal;
+    const journalToCheck = result.journal || expected?.journal || autoParsed?.journal;
     if (journalToCheck) {
         if (isPredatory(journalToCheck)) {
             result.predatory = true;
         }
     }
-    return result;
+
+    return assignGranularResolutionState(result, domesticFlags);
 };

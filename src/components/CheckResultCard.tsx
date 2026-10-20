@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { CheckResult } from '../services/SearchService';
+import { DOMESTIC_TRANSLATED_TOOLTIP, type CheckResult } from '../services/SearchService';
 import { CheckCircle, XCircle, ExternalLink, Search, Copy, Check, AlertTriangle, Edit2 } from 'lucide-react';
 
 interface Props {
@@ -11,19 +11,34 @@ interface Props {
     onUpdateResult?: (updated: CheckResult) => void;
 }
 
-const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckResult['fallbackSource'] }> = ({ source, fallback }) => {
+const SourceBadge: React.FC<{ source: CheckResult['source']; fallback?: CheckResult['fallbackSource']; resolutionState?: CheckResult['resolutionState'] }> = ({
+    source,
+    fallback,
+    resolutionState
+}) => {
     const colors: Record<string, string> = {
-        'CrossRef': 'bg-blue-100 text-blue-700',
-        'SemanticScholar': 'bg-purple-100 text-purple-700',
-        'OpenAlex': 'bg-orange-100 text-orange-700',
-        'Arxiv': 'bg-red-100 text-red-700',
-        'DBLP': 'bg-yellow-100 text-yellow-700',
-        'NotFound': 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300/90'
+        'CrossRef': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+        'SemanticScholar': 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
+        'OpenAlex': 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+        'Arxiv': 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300',
+        'DBLP': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300',
+        'NotFound':
+            resolutionState === 'WARNING_DOMESTIC_TRANSLATED'
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800/80 dark:text-slate-300/90'
     };
 
     return (
-        <div className="flex items-center space-x-1">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[source]}`}>
+        <div className="flex flex-wrap items-center gap-1.5">
+            {resolutionState === 'WARNING_DOMESTIC_TRANSLATED' && (
+                <span
+                    className="text-[11px] px-2 py-0.5 rounded-full font-mono font-semibold bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30 cursor-help"
+                    title={DOMESTIC_TRANSLATED_TOOLTIP}
+                >
+                    WARNING_DOMESTIC_TRANSLATED
+                </span>
+            )}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[source] || colors.NotFound}`}>
                 {source}
             </span>
             {fallback && (
@@ -39,11 +54,10 @@ const SourceBadge: React.FC<{ source: CheckResult['source'], fallback?: CheckRes
  * Build a Google Scholar search URL from a reference string
  */
 const getGoogleScholarUrl = (reference: string): string => {
-    // Clean up the reference for a better search query
     const cleaned = reference
-        .replace(/https?:\/\/[^\s]+/ig, '')              // Remove URLs
-        .replace(/\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/ig, '') // Remove bare DOIs
-        .replace(/doi:\s*/ig, '')                        // Remove dangling "doi:" text
+        .replace(/https?:\/\/[^\s]+/gi, '')              // Remove URLs
+        .replace(/\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+\b/gi, '') // Remove bare DOIs
+        .replace(/doi:\s*/gi, '')                        // Remove dangling "doi:" text
         .replace(/[@{}]/g, '')                           // Remove BibTeX artifacts
         .replace(/\s{2,}/g, ' ')                         // Collapse multiple spaces
         .trim()
@@ -52,9 +66,23 @@ const getGoogleScholarUrl = (reference: string): string => {
 };
 
 /**
+ * Build a Baidu Xueshu (Academic) search URL for verifying domestic Chinese references (CNKI/Wanfang/VIP)
+ */
+const getBaiduScholarUrl = (reference: string): string => {
+    const cleaned = reference
+        .replace(/\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/gi, '')
+        .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '')
+        .replace(/https?:\/\/[^\s]+/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+        .slice(0, 180);
+    return `https://xueshu.baidu.com/s?wd=${encodeURIComponent(cleaned)}`;
+};
+
+/**
  * Small copy button component with feedback
  */
-const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) => {
+const CopyButton: React.FC<{ text: string; label: string }> = ({ text, label }) => {
     const [copied, setCopied] = useState(false);
     
     const handleCopy = async () => {
@@ -68,7 +96,7 @@ const CopyButton: React.FC<{ text: string, label: string }> = ({ text, label }) 
     return (
         <button
             onClick={handleCopy}
-            className="flex items-center space-x-1 px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-medium transition-colors"
+            className="flex items-center space-x-1 px-2 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded text-xs font-medium transition-colors"
         >
             {copied ? <Check size={12} className="text-green-600 dark:text-emerald-400" /> : <Copy size={12} />}
             <span>{copied ? 'Copied!' : label}</span>
@@ -80,12 +108,25 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
     const [activeTab, setActiveTab] = useState<'apa'|'mla'|'iso690'|'bibtex'>('apa');
     const [isEditing, setIsEditing] = useState(false);
 
+    const isDomesticWarning =
+        !result?.exists &&
+        (result?.resolutionState === 'WARNING_DOMESTIC_TRANSLATED' ||
+            result?.domesticFlags?.isSuspectedChineseOrDomestic);
+
+    const cardBorderClass = result?.retracted
+        ? 'border-red-400 border-2 dark:border-rose-500/40'
+        : result?.predatory
+        ? 'border-orange-400 border-2 dark:border-orange-500/40'
+        : isDomesticWarning
+        ? 'border-amber-400 border-2 dark:border-amber-500/40'
+        : 'border-slate-200 dark:border-slate-700/60';
+
     return (
-        <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${result?.retracted ? 'border-red-400 border-2 dark:border-rose-500/30' : result?.predatory ? 'border-orange-400 border-2 dark:border-orange-500/30' : ''}`}>
+        <div className={`border rounded-lg bg-white dark:bg-slate-800/80 shadow-sm mb-2 overflow-hidden ${cardBorderClass}`}>
             {/* Header bar with status + source */}
             {!loading && result && (
-                <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-[#0B1120] border-b dark:border-slate-700/50">
-                    <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-slate-50 dark:bg-[#0B1120] border-b dark:border-slate-700/50">
+                    <div className="flex flex-wrap items-center gap-2">
                         {result.exists ? (
                             result.matchConfidence > 80 ? (
                                 <div className="flex items-center text-green-600 dark:text-emerald-400 space-x-1">
@@ -94,7 +135,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                 </div>
                             ) : result.matchConfidence > 50 ? (
                                 <div className="flex items-center text-yellow-600 dark:text-amber-400 space-x-1">
-                                    <XCircle size={16} />
+                                    <AlertTriangle size={16} />
                                     <span className="text-xs font-bold">Partial Match ({result.matchConfidence}%)</span>
                                 </div>
                             ) : (
@@ -103,6 +144,16 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                     <span className="text-xs font-bold">Mismatch / Error</span>
                                 </div>
                             )
+                        ) : isDomesticWarning ? (
+                            <div
+                                className="flex items-center text-amber-600 dark:text-amber-400 space-x-1.5 cursor-help"
+                                title={result.resolutionTooltip || DOMESTIC_TRANSLATED_TOOLTIP}
+                            >
+                                <AlertTriangle size={16} />
+                                <span className="text-xs font-bold">
+                                    Warning: Domestic / Translated Source
+                                </span>
+                            </div>
                         ) : (
                             <div className="flex items-center text-red-600 dark:text-rose-400 space-x-1">
                                 <XCircle size={16} />
@@ -124,7 +175,11 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                         )}
                     </div>
 
-                    <SourceBadge source={result.source} fallback={result.fallbackSource} />
+                    <SourceBadge
+                        source={result.source}
+                        fallback={result.fallbackSource}
+                        resolutionState={result.resolutionState}
+                    />
                 </div>
             )}
 
@@ -142,7 +197,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
             {!loading && result && (
                 <div className="flex flex-col md:flex-row">
                     {/* LEFT: What the user inserted */}
-                    <div className="flex-1 p-4 border-r border-slate-100">
+                    <div className="flex-1 p-4 border-r border-slate-100 dark:border-slate-700/50">
                         <div className="flex justify-between items-start mb-2">
                             <div className="text-xs font-semibold text-slate-400 uppercase">Your Input</div>
                             {(!result.exists || result.matchConfidence <= 80) && (
@@ -155,9 +210,19 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                     </div>
 
                     {/* RIGHT: Correct / found version */}
-                    <div className={`flex-1 p-4 ${result.retracted ? 'bg-red-50/50 dark:bg-rose-500/5' : result.exists ? 'bg-green-50/50 dark:bg-emerald-500/5' : 'bg-red-50/30 dark:bg-rose-500/5'}`}>
+                    <div
+                        className={`flex-1 p-4 ${
+                            result.retracted
+                                ? 'bg-red-50/50 dark:bg-rose-500/5'
+                                : result.exists
+                                ? 'bg-green-50/50 dark:bg-emerald-500/5'
+                                : isDomesticWarning
+                                ? 'bg-amber-50/60 dark:bg-amber-500/10'
+                                : 'bg-red-50/30 dark:bg-rose-500/5'
+                        }`}
+                    >
                         <div className="text-xs font-semibold text-slate-400 uppercase mb-2">
-                            {result.exists ? 'Found Reference' : 'Result'}
+                            {result.exists ? 'Found Reference' : isDomesticWarning ? 'Domestic / Translated Reference Notice' : 'Result'}
                         </div>
 
                         {result.exists ? (
@@ -228,7 +293,7 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                     </div>
                                 </div>
 
-                                <div className="flex space-x-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
                                     {result.journal && <span>{result.journal}</span>}
                                     {result.year && <span>({result.year})</span>}
                                     {result.citations !== undefined && (
@@ -284,28 +349,49 @@ export const CheckResultCard: React.FC<Props> = ({ reference, rawRef, result, lo
                                         <span className="text-sm uppercase tracking-wider">Warning: This source is from a known predatory journal</span>
                                     </div>
                                 )}
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    No matching reference found in CrossRef, Semantic Scholar, OpenAlex, DBLP, or arXiv.
-                                </p>
 
-                                {result.issues && result.issues.length > 0 && (
-                                    <div className="space-y-1">
-                                        {result.issues.map((issue, idx) => (
-                                            <div key={idx} className="text-xs text-red-500 font-semibold">• {issue}</div>
-                                        ))}
+                                {isDomesticWarning ? (
+                                    <div
+                                        className="p-3 bg-amber-100/90 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-600/50 rounded-lg text-amber-900 dark:text-amber-200 space-y-1.5"
+                                        title={result.resolutionTooltip || DOMESTIC_TRANSLATED_TOOLTIP}
+                                    >
+                                        <div className="flex items-start space-x-2">
+                                            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                            <p className="text-xs font-semibold leading-relaxed">
+                                                {result.resolutionTooltip || DOMESTIC_TRANSLATED_TOOLTIP}
+                                            </p>
+                                        </div>
                                     </div>
+                                ) : (
+                                    <p className="text-sm text-slate-600 dark:text-slate-300/90">
+                                        No matching reference found in CrossRef, Semantic Scholar, OpenAlex, DBLP, or arXiv.
+                                    </p>
                                 )}
 
-                                {/* Google Scholar fallback */}
-                                <a
-                                    href={getGoogleScholarUrl(reference)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 text-xs font-medium rounded-lg transition-colors"
-                                >
-                                    <Search size={14} />
-                                    <span>Search on Google Scholar</span>
-                                </a>
+                                {/* Search fallbacks */}
+                                <div className="flex flex-wrap gap-2">
+                                    <a
+                                        href={getGoogleScholarUrl(reference)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 text-xs font-medium rounded-lg transition-colors"
+                                    >
+                                        <Search size={14} />
+                                        <span>Search on Google Scholar</span>
+                                    </a>
+                                    {isDomesticWarning && (
+                                        <a
+                                            href={getBaiduScholarUrl(reference)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center space-x-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-500/20 dark:text-amber-300 dark:hover:bg-amber-500/30 text-xs font-medium rounded-lg transition-colors"
+                                            title="Search Chinese domestic databases (CNKI / Wanfang / Baidu Xueshu)"
+                                        >
+                                            <Search size={14} />
+                                            <span>Check CNKI / Baidu Scholar</span>
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
