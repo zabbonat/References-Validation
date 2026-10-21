@@ -59,14 +59,14 @@ const BATCH_CHECK_EXAMPLE = `@article{lecun2015deep,
 }
 % NOTE: This paper is published in a known predatory journal
 
-@article{zhang2023digital,
-  title={Digital transformation and enterprise innovation performance [J]},
-  author={Zhang, L. and Wang, Y.},
-  journal={Journal of Peking University (Philosophy and Social Sciences Edition)},
-  volume={60},
-  number={4},
-  pages={112--125},
-  year={2023},
+@article{wu2021enterprise,
+  title={Enterprise Digital Transformation and Capital Market Performance: Empirical Evidence from Stock Liquidity [J]},
+  author={Wu, Fei and Hu, Huizhi and Lin, Huiyan and Ren, Xiaoyi},
+  journal={Management World},
+  volume={37},
+  number={7},
+  pages={130--144},
+  year={2021},
   note={[in Chinese]}
 }
 % NOTE: Translated Chinese domestic reference (CNKI/GB-T 7714) without international DOI`;

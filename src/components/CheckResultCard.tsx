@@ -66,16 +66,39 @@ const getGoogleScholarUrl = (reference: string): string => {
 };
 
 /**
- * Build a Baidu Xueshu (Academic) search URL for verifying domestic Chinese references (CNKI/Wanfang/VIP)
+ * Build a Baidu Xueshu (Academic) search URL for verifying domestic Chinese references (CNKI/Wanfang/VIP).
+ * Extracts the clean article title so Baidu Scholar matches the bilingual CNKI record directly.
  */
 const getBaiduScholarUrl = (reference: string): string => {
-    const cleaned = reference
+    let titleCandidate = reference;
+
+    // 1. If raw BibTeX, extract title={...}
+    const bibTitleMatch = reference.match(/title\s*=\s*[{"]([^}"]+)[}"]/i);
+    if (bibTitleMatch) {
+        titleCandidate = bibTitleMatch[1];
+    } else {
+        // 2. If GB/T 7714 marker [J], [M], [D], etc. is present, title is right before it
+        const gbtSplit = reference.split(/\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/i);
+        if (gbtSplit.length > 1 && gbtSplit[0].trim().length > 8) {
+            const beforeGbt = gbtSplit[0].trim();
+            const afterYear = beforeGbt.replace(/^.*?\(\d{4}[a-z]?\)\.\s*/i, '');
+            if (afterYear !== beforeGbt && afterYear.trim().length > 8) {
+                titleCandidate = afterYear.trim();
+            } else {
+                const parts = beforeGbt.split(/\.\s+/);
+                titleCandidate = parts[parts.length - 1].trim();
+            }
+        }
+    }
+
+    const cleaned = titleCandidate
         .replace(/\[\s*(?:J|M|D|C|R|S|P|N|Z|EB\/OL)\s*\]/gi, '')
         .replace(/\[(in\s+)?chinese\]|\((in\s+)?chinese\)/gi, '')
         .replace(/https?:\/\/[^\s]+/gi, '')
+        .replace(/[@{}]/g, '')
         .replace(/\s{2,}/g, ' ')
         .trim()
-        .slice(0, 180);
+        .slice(0, 160);
     return `https://xueshu.baidu.com/s?wd=${encodeURIComponent(cleaned)}`;
 };
 
