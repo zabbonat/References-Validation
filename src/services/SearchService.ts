@@ -305,6 +305,8 @@ export interface ExpectedMetadata {
     authors?: string;
     journal?: string;
     year?: string;
+    doi?: string;
+    citationKey?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -539,8 +541,8 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
             const resultTitle = item.title?.[0] || "";
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const resultAuthors = (item.author || []).map((a: any) => a.family).join(", ");
-            const resultYear = getPrimaryYear(item);
             const resultAllYears = getAllYears(item);
+            const resultYear = (expected?.year && resultAllYears.includes(expected.year)) ? expected.year : getPrimaryYear(item);
             const resultJournal = item['container-title']?.[0] || "";
 
             // ===== TITLE SIMILARITY CHECK =====
@@ -630,8 +632,9 @@ export const checkReference = async (rawQuery: string, expected?: ExpectedMetada
 
                     // Check 2: Are there EXTRA authors in expected?
                     const decodedExpectedAuthors = decodeLatex(expected.authors);
+                    const hasAndOrSemicolon = /\sand\s|;/i.test(decodedExpectedAuthors);
                     const expectedList = decodedExpectedAuthors
-                        .split(/[,&]|\sand\s/i)
+                        .split(hasAndOrSemicolon ? /\sand\s|;|&/i : /[,&]|\sand\s/i)
                         .map(s => s.trim())
                         .filter(s => s.length > 1);
 
@@ -1125,18 +1128,28 @@ const resolveByDOI = async (doi: string, expected?: ExpectedMetadata, query?: st
     }
 };
 
+const cleanExtractedDoi = (rawDoi: string): string => {
+    let doi = rawDoi.replace(/[.\s,;})\]>"']+$/, '');
+    const openParens = (rawDoi.match(/\(/g) || []).length;
+    const closeParens = (doi.match(/\)/g) || []).length;
+    if (openParens > closeParens && rawDoi.startsWith(doi + ')')) {
+        doi += ')';
+    }
+    return doi;
+};
+
 /**
  * Extract DOI from a query string
  */
 const extractDOI = (text: string): string | null => {
     const patterns = [
-        /(?:DOI\s*[：:]\s*)(10\.\d{4,9}\/[^\s,;]+)/i,
-        /(?:https?:\/\/doi\.org\/)(10\.\d{4,9}\/[^\s,;]+)/i,
-        /\b(10\.\d{4,9}\/[^\s,;]+)/
+        /(?:DOI\s*[：:=]\s*[{"]?)(10\.\d{4,9}\/[^\s,;{}[\]<>"']+)/i,
+        /(?:https?:\/\/(?:dx\.)?doi\.org\/)(10\.\d{4,9}\/[^\s,;{}[\]<>"']+)/i,
+        /\b(10\.\d{4,9}\/[^\s,;{}[\]<>"']+)/
     ];
     for (const pattern of patterns) {
         const match = text.match(pattern);
-        if (match) return match[1].replace(/[.\s]+$/, '');
+        if (match) return cleanExtractedDoi(match[1]);
     }
     return null;
 };
@@ -1154,7 +1167,7 @@ const extractArxivId = (text: string): string | null => {
     ];
     for (const pattern of patterns) {
         const match = text.match(pattern);
-        if (match) return match[1].replace(/v\d+$/, ''); // Strip version suffix
+        if (match) return match[1].replace(/v\d+$/, '').replace(/[.\s]+$/, ''); // Strip version suffix and trailing dots
     }
     return null;
 };
@@ -1174,7 +1187,8 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                 title: autoParsed.title,
                 authors: autoParsed.authors,
                 journal: autoParsed.journal,
-                year: autoParsed.year
+                year: autoParsed.year,
+                doi: autoParsed.doi
             };
         }
     }
@@ -1183,15 +1197,19 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
 
     // ===== DOI DIRECT LOOKUP =====
     // If the query or expected metadata contains a DOI, try direct resolution first
-    const queryDOI = extractDOI(originalQuery || query);
+    const queryDOI = (effectiveExpected?.doi ? extractDOI(effectiveExpected.doi) : null) || extractDOI(originalQuery || query);
     let invalidDoiIssue = '';
 
     if (queryDOI) {
         // Check if this is an arXiv DOI (10.48550/arXiv.XXXX) — resolve via arXiv directly
+        // Note: 10.48550/* DOIs are registered with DataCite, NOT CrossRef, so CrossRef works/ API never indexes them.
         const arxivFromDoi = queryDOI.match(/10\.48550\/arXiv\.([\d.]+)/i);
         if (arxivFromDoi) {
             const arxivDirectResult = await resolveArxivById(arxivFromDoi[1]);
             if (arxivDirectResult) {
+                const expectedTitleToCheck = effectiveExpected?.title || extractLikelyTitle(query);
+                const titleSim = expectedTitleToCheck ? computeTitleSim(expectedTitleToCheck, arxivDirectResult.title) : 100;
+                const isTitleMatch = titleSim >= MIN_TITLE_SIMILARITY;
                 return {
                     exists: true,
                     title: arxivDirectResult.title,
@@ -1205,20 +1223,22 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     iso690: formatArxivISO690(arxivDirectResult),
                     bibtex: generateArxivBibTeX(arxivDirectResult),
                     source: 'Arxiv',
-                    matchConfidence: 100,
-                    titleMatchScore: 100,
+                    matchConfidence: isTitleMatch ? 100 : 50,
+                    titleMatchScore: isTitleMatch ? Math.max(titleSim, 95) : titleSim,
                     authorMatchScore: 100,
                     journalMatchScore: 100,
-                    issues: []
+                    issues: isTitleMatch ? [] : [`⚠️ Title mismatch with DOI metadata. Found: "${arxivDirectResult.title}"`]
                 };
+            } else {
+                invalidDoiIssue = `⚠️ The provided DOI (${queryDOI}) is invalid or points to an unrelated article.`;
             }
-        }
-
-        const doiResult = await resolveByDOI(queryDOI, effectiveExpected, originalQuery || query);
-        if (doiResult) {
-            return doiResult;
         } else {
-            invalidDoiIssue = `⚠️ The provided DOI (${queryDOI}) is invalid or points to an unrelated article.`;
+            const doiResult = await resolveByDOI(queryDOI, effectiveExpected, originalQuery || query);
+            if (doiResult) {
+                return doiResult;
+            } else {
+                invalidDoiIssue = `⚠️ The provided DOI (${queryDOI}) is invalid or points to an unrelated article.`;
+            }
         }
     }
 
@@ -1228,7 +1248,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
     if (arxivId && !queryDOI) { // Skip if we already tried via DOI
         const arxivDirectResult = await resolveArxivById(arxivId);
         if (arxivDirectResult) {
-            const titleSim = effectiveExpected?.title ? computeTitleSim(effectiveExpected.title, arxivDirectResult.title) : 90;
+            const titleSim = effectiveExpected?.title ? computeTitleSim(effectiveExpected.title, arxivDirectResult.title) : 95;
             if (titleSim >= MIN_TITLE_SIMILARITY || !effectiveExpected?.title) {
                 return {
                     exists: true,
@@ -1296,6 +1316,13 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
 
     // Await only the 3 primary sources first
     const [crossRefResult, ssResult, oaResult] = await Promise.all([crossRefPromise, ssPromise, oaPromise]);
+
+    // Helper: if a candidate's DOI matches queryDOI, the DOI is valid (e.g. DataCite/arXiv DOI indexed in OpenAlex/SS)
+    const doiMatchesCandidate = (candidateDoi?: string): boolean => {
+        if (!queryDOI || !candidateDoi) return false;
+        const cleanCand = candidateDoi.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').trim().toLowerCase();
+        return cleanCand === queryDOI.toLowerCase();
+    };
 
     // Helper: check if a candidate conflicts with an explicit domestic/translated Chinese journal
     const isConflictingDomesticVenue = (candidateJournal: string | undefined, titleSim: number, authorSim: number, candidateYear?: string): boolean => {
@@ -1396,7 +1423,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     iso690: formatSemanticScholarISO690(ssResult),
                     bibtex: generateSemanticScholarBibTeX(ssResult),
                     source: 'SemanticScholar',
-                    matchConfidence: Math.min(95, confidence),
+                    matchConfidence: Math.min(100, confidence),
                     titleMatchScore: ssTitleSim,
                     authorMatchScore: ssAuthorSim,
                     journalMatchScore: ssResult.venue ? 90 : 50,
@@ -1449,6 +1476,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
             if (oaAuthorSim < 50) {
                 oaIssues.push('Author Mismatch in OpenAlex fallback');
             }
+            const cleanOaDoi = oaResult.doi ? oaResult.doi.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '') : undefined;
 
             candidates.push({
                 source: 'OpenAlex',
@@ -1459,7 +1487,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     year: oaResult.year?.toString() || '',
                     journal: oaResult.journal,
                     url: oaResult.url,
-                    doi: oaResult.doi || undefined,
+                    doi: cleanOaDoi || undefined,
                     citations: oaResult.citations,
                     retracted: oaResult.isRetracted,
                     apa: formatOpenAlexAPA(oaResult),
@@ -1467,7 +1495,7 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     iso690: formatOpenAlexISO690(oaResult),
                     bibtex: generateOpenAlexBibTeX(oaResult),
                     source: 'OpenAlex',
-                    matchConfidence: Math.min(92, confidence),
+                    matchConfidence: Math.min(100, confidence),
                     titleMatchScore: oaTitleSim,
                     authorMatchScore: oaAuthorSim,
                     journalMatchScore: oaResult.journal ? 85 : 50,
@@ -1479,30 +1507,32 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
         }
     }
 
+    if (invalidDoiIssue && candidates.some(c => c.titleSim >= 85 && doiMatchesCandidate(c.result.doi))) {
+        invalidDoiIssue = '';
+    }
+
     // ===== PICK THE BEST CANDIDATE =====
     let primaryBest: Candidate | null = null;
     if (candidates.length > 0) {
         candidates.sort((a, b) => b.score - a.score);
         primaryBest = candidates[0];
+
+        // If CrossRef already has a high-confidence verified match (>= 85%), prefer CrossRef
+        // unless another source is substantially better.
+        const crossRefCandidate = candidates.find(c => c.source === 'CrossRef');
+        if (
+            crossRefCandidate &&
+            crossRefCandidate.result.matchConfidence >= 85 &&
+            crossRefCandidate.result.authorMatchScore >= 80 &&
+            crossRefCandidate.titleSim >= 85 &&
+            primaryBest.score <= crossRefCandidate.score + 15
+        ) {
+            primaryBest = crossRefCandidate;
+        }
         
         // If the best primary match is very confident, return it immediately without waiting for fallbacks
         if (primaryBest.result.authorMatchScore >= 70 && primaryBest.titleSim >= 85) {
-            if (primaryBest.source === 'CrossRef') {
-                const otherBest = candidates.find(c => c.source !== 'CrossRef');
-                if (otherBest && otherBest.score > primaryBest.score) {
-                    const winner = otherBest.result;
-                    winner.issues = [`Better match found in ${otherBest.source} (CrossRef confidence was ${primaryBest.result.matchConfidence}%)`];
-                    return winner;
-                }
-                if (futureYearIssues.length > 0) crossRefResult.issues = [...crossRefResult.issues, ...futureYearIssues];
-                if (invalidDoiIssue) crossRefResult.issues.push(invalidDoiIssue);
-                return crossRefResult;
-            }
-
             const winner = primaryBest.result;
-            if (crossRefResult.exists) {
-                winner.issues = [`Better match found in ${primaryBest.source} (CrossRef confidence was ${crossRefResult.matchConfidence}%)`];
-            }
             if (futureYearIssues.length > 0) winner.issues = [...winner.issues, ...futureYearIssues];
             if (invalidDoiIssue) winner.issues.push(invalidDoiIssue);
             return winner;
@@ -1537,12 +1567,11 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     iso690: formatArxivISO690(arxivResult),
                     bibtex: generateArxivBibTeX(arxivResult),
                     source: 'Arxiv',
-                    matchConfidence: Math.min(90, confidence),
+                    matchConfidence: Math.min(100, confidence),
                     titleMatchScore: arxivTitleSim,
                     authorMatchScore: arxivAuthorSim,
                     journalMatchScore: arxivResult.category ? 80 : 50,
                     issues: [
-                        'Found in arXiv (not indexed in CrossRef, Semantic Scholar, or OpenAlex)',
                         ...(arxivAuthorSim < 50 ? ['Author Mismatch in arXiv fallback'] : []),
                         ...futureYearIssues
                     ]
@@ -1576,12 +1605,11 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
                     iso690: formatDblpISO690(dblpResult),
                     bibtex: generateDblpBibTeX(dblpResult),
                     source: 'DBLP',
-                    matchConfidence: Math.min(90, confidence),
+                    matchConfidence: Math.min(100, confidence),
                     titleMatchScore: dblpTitleSim,
                     authorMatchScore: dblpAuthorSim,
                     journalMatchScore: dblpResult.venue ? 85 : 50,
                     issues: [
-                        'Found in DBLP (not indexed in CrossRef, Semantic Scholar, or OpenAlex)',
                         ...(dblpAuthorSim < 50 ? ['Author Mismatch in DBLP fallback'] : []),
                         ...futureYearIssues
                     ]
@@ -1594,28 +1622,17 @@ const _checkWithFallback = async (query: string, expected?: ExpectedMetadata, or
 
     // Merge fallback candidates into main pool and re-sort to find the absolute best
     candidates.push(...fallbackCandidates);
+
+    if (invalidDoiIssue && candidates.some(c => c.titleSim >= 85 && doiMatchesCandidate(c.result.doi))) {
+        invalidDoiIssue = '';
+    }
     
     if (candidates.length > 0) {
         candidates.sort((a, b) => b.score - a.score);
         const best = candidates[0];
-
-        if (best.source === 'CrossRef') {
-            const otherBest = candidates.find(c => c.source !== 'CrossRef');
-            if (otherBest && otherBest.score > best.score) {
-                const winner = otherBest.result;
-                winner.issues = [`Better match found in ${otherBest.source} (CrossRef confidence was ${best.result.matchConfidence}%)`];
-                return winner;
-            }
-            if (futureYearIssues.length > 0) crossRefResult.issues = [...crossRefResult.issues, ...futureYearIssues];
-            if (invalidDoiIssue) crossRefResult.issues.push(invalidDoiIssue);
-            return crossRefResult;
-        }
-
         const winner = best.result;
-        if (crossRefResult.exists) {
-            winner.issues = [`Better match found in ${best.source} (CrossRef confidence was ${crossRefResult.matchConfidence}%)`];
-        }
-        if (futureYearIssues.length > 0) winner.issues = [...winner.issues, ...futureYearIssues];
+
+        if (futureYearIssues.length > 0) winner.issues = [...new Set([...winner.issues, ...futureYearIssues])];
         if (invalidDoiIssue) winner.issues.push(invalidDoiIssue);
         
         // If the best match is still below acceptance threshold, return NotFound
@@ -1720,6 +1737,12 @@ export const assignGranularResolutionState = (
     return result;
 };
 
+const extractBibtexKey = (text?: string): string | undefined => {
+    if (!text) return undefined;
+    const m = text.match(/^\s*@\w+\s*\{\s*([^,\s}]+)\s*,/m);
+    return m ? m[1].trim() : undefined;
+};
+
 export const checkWithFallback = async (query: string, expected?: ExpectedMetadata, originalQuery?: string): Promise<CheckResult> => {
     const rawRefForHeuristics = originalQuery || query;
     const autoParsed = !expected?.title ? parsePlainTextRef(rawRefForHeuristics) : undefined;
@@ -1735,6 +1758,17 @@ export const checkWithFallback = async (query: string, expected?: ExpectedMetada
     if (journalToCheck) {
         if (isPredatory(journalToCheck)) {
             result.predatory = true;
+        }
+    }
+
+    // Preserve user's original BibTeX citation key (e.g., abbonato2026) if input was BibTeX
+    const userCitationKey = expected?.citationKey || extractBibtexKey(originalQuery) || extractBibtexKey(query);
+    if (userCitationKey) {
+        if (result.bibtex) {
+            result.bibtex = result.bibtex.replace(/^(@\w+\s*\{\s*)[^,\s]+(\s*,)/, `$1${userCitationKey}$2`);
+        }
+        if (result.correctedBibtex) {
+            result.correctedBibtex = result.correctedBibtex.replace(/^(@\w+\s*\{\s*)[^,\s]+(\s*,)/, `$1${userCitationKey}$2`);
         }
     }
 

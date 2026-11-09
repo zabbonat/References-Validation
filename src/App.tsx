@@ -324,8 +324,10 @@ function App() {
         result = await checkWithFallback(searchQuery, {
           title: p.entryTags.title,
           authors: p.entryTags.author,
-          journal: p.entryTags.journal,
-          year: p.entryTags.year
+          journal: p.entryTags.journal || p.entryTags.booktitle,
+          year: p.entryTags.year,
+          doi: p.entryTags.doi,
+          citationKey: p.citationKey
         }, cleanedText);
       } else {
         const parsedText = parsePlainTextRef(cleanedText);
@@ -334,7 +336,8 @@ function App() {
           title: parsedText.title,
           authors: parsedText.authors,
           journal: parsedText.journal,
-          year: parsedText.year
+          year: parsedText.year,
+          doi: parsedText.doi
         }, cleanedText);
       }
     } else {
@@ -344,7 +347,8 @@ function App() {
         title: parsedText.title,
         authors: parsedText.authors,
         journal: parsedText.journal,
-        year: parsedText.year
+        year: parsedText.year,
+        doi: parsedText.doi
       }, cleanedText);
     }
 
@@ -428,8 +432,10 @@ function App() {
         const res = await checkWithFallback(searchQuery, {
           title: p.entryTags.title,
           authors: p.entryTags.author,
-          journal: p.entryTags.journal,
-          year: p.entryTags.year
+          journal: p.entryTags.journal || p.entryTags.booktitle,
+          year: p.entryTags.year,
+          doi: p.entryTags.doi,
+          citationKey: p.citationKey
         }, newResults[i].rawRef || newResults[i].ref);
 
         newResults[i] = { ...newResults[i], result: res, loading: false };

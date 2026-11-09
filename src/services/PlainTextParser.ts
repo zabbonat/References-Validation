@@ -16,19 +16,29 @@ export interface ParsedPlainTextRef {
     refNumber?: number; // e.g., [1], [23]
 }
 
+const cleanExtractedDoi = (rawDoi: string): string => {
+    let doi = rawDoi.replace(/[.\s,;})\]>"']+$/, '');
+    const openParens = (rawDoi.match(/\(/g) || []).length;
+    const closeParens = (doi.match(/\)/g) || []).length;
+    if (openParens > closeParens && rawDoi.startsWith(doi + ')')) {
+        doi += ')';
+    }
+    return doi;
+};
+
 /**
  * Extract DOI from a reference string
  */
 const extractDOI = (ref: string): string | undefined => {
-    // Match DOI patterns: DOI:10.xxx/yyy or https://doi.org/10.xxx/yyy
+    // Match DOI patterns: DOI:10.xxx/yyy, doi={10.xxx/yyy}, or https://doi.org/10.xxx/yyy
     const doiPatterns = [
-        /(?:DOI\s*[：:]\s*)(10\.\d{4,9}\/[^\s,;]+)/i,
-        /(?:https?:\/\/doi\.org\/)(10\.\d{4,9}\/[^\s,;]+)/i,
-        /\b(10\.\d{4,9}\/[^\s,;]+)/
+        /(?:DOI\s*[：:=]\s*[{"]?)(10\.\d{4,9}\/[^\s,;{}[\]<>"']+)/i,
+        /(?:https?:\/\/(?:dx\.)?doi\.org\/)(10\.\d{4,9}\/[^\s,;{}[\]<>"']+)/i,
+        /\b(10\.\d{4,9}\/[^\s,;{}[\]<>"']+)/
     ];
     for (const pattern of doiPatterns) {
         const match = ref.match(pattern);
-        if (match) return match[1].replace(/[.\s]+$/, ''); // trim trailing dots/spaces
+        if (match) return cleanExtractedDoi(match[1]);
     }
     return undefined;
 };

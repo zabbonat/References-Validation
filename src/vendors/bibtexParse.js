@@ -90,7 +90,7 @@ export const bibtexParse = function () {
         var strings = {};
         var pos = 0;
 
-        var input = input.replace(/(\r\n|\n|\r)/gm, "")
+        var input = input.replace(/^\s*%.*$/gm, "").replace(/(\r\n|\n|\r)/gm, " ")
 
         while (pos < input.length) {
             const result = tryConsumeEntry(input);
@@ -130,6 +130,7 @@ export const bibtexParse = function () {
 
             while (pos < input.length && input[pos] !== '}') {
                 skipWhitespace();
+                if (input[pos] === '}') break;
                 const tagName = consumeKey();
                 skipWhitespace();
                 if (input[pos] !== '=') {

@@ -125,6 +125,31 @@ const parseArxivResponse = (xml: string): ArxivResult[] => {
 };
 
 /**
+ * Fetch XML from arXiv API, trying direct request first and falling back to CORS proxies if needed.
+ */
+const fetchArxivXml = async (apiUrl: string): Promise<string | null> => {
+    const urlsToTry = [
+        apiUrl,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`
+    ];
+    for (const url of urlsToTry) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                const text = await response.text();
+                if (text && text.includes('<feed')) {
+                    return text;
+                }
+            }
+        } catch {
+            // Try next fallback
+        }
+    }
+    return null;
+};
+
+/**
  * Search arXiv for a paper by title.
  * @param title - The paper title to search for
  * @param expectedYear - Optional expected year to prefer the correct version
@@ -135,18 +160,12 @@ export const searchArxiv = async (title: string, expectedYear?: string): Promise
         // Use ti: prefix to search specifically in titles
         // Also do an all: search for better recall with messy queries
         const encodedQuery = encodeURIComponent(title);
-        // Use CodeTabs public proxy to bypass ArXiv's anti-bot IP blocking and CORS
-        const PROXY_URL = 'https://api.codetabs.com/v1/proxy?quest=';
         const apiUrl = `https://export.arxiv.org/api/query?search_query=ti:${encodedQuery}&max_results=5&sortBy=relevance&sortOrder=descending`;
 
-        const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl));
-
-        if (!response.ok) {
-            console.warn(`arXiv API returned ${response.status}`);
+        const xmlText = await fetchArxivXml(apiUrl);
+        if (!xmlText) {
             return null;
         }
-
-        const xmlText = await response.text();
         const papers = parseArxivResponse(xmlText);
 
         if (papers.length === 0) {
@@ -190,14 +209,12 @@ export const searchArxiv = async (title: string, expectedYear?: string): Promise
  */
 export const resolveArxivById = async (arxivId: string): Promise<ArxivResult | null> => {
     try {
-        const cleanId = arxivId.replace(/^arXiv:/i, '').replace(/v\d+$/, '').trim();
-        const PROXY_URL = 'https://api.codetabs.com/v1/proxy?quest=';
+        const cleanId = arxivId.replace(/^arXiv:/i, '').replace(/v\d+$/, '').replace(/[.\s})\]]+$/, '').trim();
         const apiUrl = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(cleanId)}`;
 
-        const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl));
-        if (!response.ok) return null;
+        const xmlText = await fetchArxivXml(apiUrl);
+        if (!xmlText) return null;
 
-        const xmlText = await response.text();
         const papers = parseArxivResponse(xmlText);
 
         return papers.length > 0 ? papers[0] : null;

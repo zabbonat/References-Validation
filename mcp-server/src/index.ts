@@ -125,6 +125,8 @@ Use this tool whenever you need to:
                     authors?: string;
                     journal?: string;
                     year?: string;
+                    doi?: string;
+                    citationKey?: string;
                 };
             }
 
@@ -138,13 +140,14 @@ Use this tool whenever you need to:
                     const title = tags.title?.replace(/[{}]/g, '').trim() || '';
                     const authors = tags.author?.replace(/[{}]/g, '').trim() || '';
                     const year = tags.year?.trim() || '';
-                    const journal = tags.journal?.replace(/[{}]/g, '').trim() || '';
+                    const journal = (tags.journal || tags.booktitle)?.replace(/[{}]/g, '').trim() || '';
+                    const doi = tags.doi?.replace(/[{}]/g, '').trim() || undefined;
 
                     const searchQuery = title || `${authors} ${year} ${title}`.trim();
                     refsToCheck.push({
-                        raw: `@${entry.entryType}{${entry.citationKey}, title={${title}}, author={${authors}}, year={${year}}}`,
+                        raw: `@${entry.entryType}{${entry.citationKey}, title={${title}}, author={${authors}}, year={${year}}${doi ? `, doi={${doi}}` : ''}}`,
                         searchQuery,
-                        expected: { title, authors, journal, year },
+                        expected: { title, authors, journal, year, doi, citationKey: entry.citationKey },
                     });
                 }
             } else {
